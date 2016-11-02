@@ -115,8 +115,13 @@ CREATE INDEX sp_merged_all_union_geom_gist ON sp_merged_all_union USING GIST (th
 CLUSTER sp_merged_all_union USING sp_merged_all_union_geom_gist;
 ANALYZE sp_merged_all_union;
 
+drop table if exists grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean;
+create table grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean as
+(select st_makevalid(st_buffer(the_geom,0)) as the_geom, nodeiddiss as node_id, area_geo as area, fid_pas_in as wdpa from grid_pas_trees_40postcent_30agg_diss_ovr1ha offset 0);
 
-
+CREATE INDEX grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean_geom_gist ON grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean USING GIST (the_geom);
+CLUSTER grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean USING grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean_geom_gist;
+ANALYZE grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean;
 
 --getting nodeids touching species
 drop table if exists grid_pas_trees_40postcent_30agg_by_nodeids;

@@ -107,9 +107,11 @@ foo2.id_no
 
 drop table if exists sp_merged_all_union;
 create table sp_merged_all_union as
-(select spp_id as id_no, st_union((st_buffer(the_geom,0))) as the_geom  from (select * from sp_merged_all order by spp_id limit 200) as foo group by id_no);
+(select spp_id as id_no, st_union((st_buffer(the_geom,0))) as the_geom  from (select * from sp_merged_all order by spp_id) as foo group by id_no);
 
 select * from sp_merged_all_union;
+
+
 
 CREATE INDEX sp_merged_all_union_geom_gist ON sp_merged_all_union USING GIST (the_geom);
 CLUSTER sp_merged_all_union USING sp_merged_all_union_geom_gist;
@@ -123,6 +125,7 @@ CREATE INDEX grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean_geom_gist ON grid
 CLUSTER grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean USING grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean_geom_gist;
 ANALYZE grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean;
 
+
 --getting nodeids touching species
 drop table if exists grid_pas_trees_40postcent_30agg_by_nodeids;
 create table grid_pas_trees_40postcent_30agg_by_nodeids as
@@ -132,11 +135,11 @@ foo1.node_id,
 min(foo1.area) as area,
 min(case when (wdpa>-1) then 1 else 0 end) as wdpa
 from 
-(select the_geom, nodeiddiss as node_id, area_geo as area, fid_pas_in as wdpa from grid_pas_trees_40postcent_30agg_diss_ovr1ha offset 0)
+grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean
 as foo1,
 /*(select id_no, st_makevalid(st_transform(st_buffer(the_geom,0),54032)) as the_geom from forest_aves_in_africa order by id_no)*/
-/*(select spp_id as id_no, the_geom  from sp_merged_all order by spp_id limit 200) */sp_merged_all_union
-as foo2
+/*(select spp_id as id_no, the_geom  from sp_merged_all order by spp_id limit 200) */ 
+sp_merged_all_union as foo2
 where
 st_intersects(foo1.the_geom,foo2.the_geom)
 group by 

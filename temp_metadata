@@ -1,0 +1,4 @@
+import arcpy
+
+listRast=arcpy.ListRasters("C:\Data\cci_connectivity\raw\species\alt_clipped_ranges_c1200spp_Feb2016")
+print listRast

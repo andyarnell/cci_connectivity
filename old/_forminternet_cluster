@@ -1,0 +1,92 @@
+##aim: group clusters of polygons (nodes) together based on distance
+##so that all polygons within that distance of each other have the same id.
+#this aims to reduce number of nodes for later analyses 
+
+##created by Andy Arnell 09/06/2015
+
+print "Importing packages"
+
+import os
+import arcpy
+from arcpy import env
+from arcpy.sa import *
+import glob
+import string
+
+import time
+
+print "Setting local parameters and inputs"
+
+# Check out the ArcGIS Spatial Analyst extension license
+arcpy.CheckOutExtension("Spatial")
+
+env.overwriteOutput = True
+
+beginTime = time.clock()
+
+#Set environment settings
+
+rawFolder = "C:/Data/cci_connectivity/raw/hansen"
+
+tempFolder = "C:/Data/cci_connectivity/scratch" 
+
+outFolder=tempFolder+"/output/"
+
+#distance to aggregate pixels
+aggDist=2km 
+
+#set to raw folder
+env.workspace = rawFolder+"/"
+
+
+
+# The function to look for connected components.
+    def connected_components(nodes):
+    
+        # List of connected components found. The order is random.
+        result = []
+    
+        # Make a copy of the set, so we can modify it.
+        nodes = set(nodes)
+    
+        # Iterate while we still have nodes to process.
+        while nodes:
+    
+            # Get a random node and remove it from the global set.
+            n = nodes.pop()
+    
+            # This set will contain the next group of nodes connected to each other.
+            group = {n}
+    
+            # Build a queue with this node in it.
+            queue = [n]
+    
+            # Iterate the queue.
+            # When it's empty, we finished visiting a group of connected nodes.
+            while queue:
+    
+                # Consume the next item from the queue.
+                n = queue.pop(0)
+    
+                # Fetch the neighbors.
+                neighbors = n.links
+    
+                # Remove the neighbors we already visited.
+                neighbors.difference_update(group)
+    
+                # Remove the remaining nodes from the global set.
+                nodes.difference_update(neighbors)
+    
+                # Add them to the group of connected nodes.
+                group.update(neighbors)
+    
+                # Add them to the queue, so we visit them in the next iterations.
+                queue.extend(neighbors)
+    
+            # Add the group to the list of groups.
+            result.append(group)
+    
+        # Return the list of groups.
+        return result
+
+    

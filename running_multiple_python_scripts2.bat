@@ -1,0 +1,3 @@
+
+start /wait C:\Data\cci_connectivity\scripts\d1_collating_conefor_text_output_textfiles_by_species.py
+start /wait C:\Data\cci_connectivity\scripts\d2_joining_collated_importance_textfiles_to_species_polygons.py

@@ -1,0 +1,19 @@
+##for filename in glob.glob(os.path.join(outFolder, '*nodes*')):
+##    print filename
+##    with arcpy.da.UpdateCursor(filename,[]) as cursor:
+##        #count = 0
+##        for row in cursor:
+##            print row[3]
+##            row[3]=0
+##            cursor.updateRow(row)
+##
+##for filename in glob.glob(os.path.join(outFolder, '*impJ*.shp*')):
+##    print filename
+##    print filename
+##    cursor =  arcpy.SearchCursor(filename)
+##    count = 0
+##    for row in cursor:
+##        print row[3]
+        #row.setValue([3],0)
+        #cursor.updateRow(row)
+        #print "The number of nodes/features in group: {0}  (for cell_id: {1})".format(count,val)

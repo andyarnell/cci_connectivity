@@ -125,6 +125,53 @@ CREATE INDEX grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean_geom_gist ON grid
 CLUSTER grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean USING grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean_geom_gist;
 ANALYZE grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean;
 
+--importing dispersal data
+DROP TABLE IF EXISTS dispersal_data;
+CREATE TABLE dispersal_data
+(species varchar, 
+taxon_id bigint,
+fit_05 varchar,
+upr_05 varchar,
+lwr_05 varchar,
+final_value_to_use numeric,
+CONSTRAINT dispersal_data_pkey 
+primary key (taxon_id)
+)
+WITH (OIDS=FALSE);
+ALTER TABLE dispersal_data
+  OWNER TO postgres;
+
+copy dispersal_data
+(species, 
+taxon_id,
+fit_05,
+upr_05,
+lwr_05,
+final_value_to_use)
+from 'C:\Data\cci_connectivity\scratch\dispersal\bird_dispersal_edit.csv'  delimiter ',' header CSV;
+
+
+select * from sp_merged_all_union limit 10 
+select * from dispersal_data limit 10 
+
+
+
+select  left((REPLACE(id_no, 'sp_', '')), length((REPLACE(id_no, 'sp_', ''))) - 1)  from sp_merged_all_union limit 10
+
+regexp_replace(string, '-$', '') as one_trimmed
+
+SELECT id_no LENGTH(name) FROM cities ORDER BY LENGTH(name);
+
+select * from sp_merged_all_union limit 10
+
+select * 
+from 
+(select  taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*10) as cutoff_dist from dispersal_data) as foo1, 
+(select left((REPLACE(id_no, 'sp_', '')), length((REPLACE(id_no, 'sp_', ''))) - 2)::bigint as id_no from sp_merged_all_union)
+as foo2
+where foo1.id_no=foo2.id_no;
+
+
 
 --getting nodeids touching species
 drop table if exists grid_pas_trees_40postcent_30agg_by_nodeids;
@@ -141,7 +188,8 @@ as foo1,
 /*(select spp_id as id_no, the_geom  from sp_merged_all order by spp_id limit 200) */ 
 sp_merged_all_union as foo2
 where
-st_intersects(foo1.the_geom,foo2.the_geom)
+st_intersects(foo1.the_geom,foo2.the_geom),
+
 group by 
 foo1.node_id,
 foo2.id_no
@@ -167,7 +215,7 @@ min(foo1.distance) as distance
 from 
 links_grid_pas_trees_40postcent_30agg 
 as foo1,
-(select * from grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id limit 50000)
+(select * from grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id)
 as foo2
 where
 foo1.to_node_id=foo2.node_id
@@ -178,6 +226,43 @@ foo1.from_node_id,
 foo1.to_node_id,
 foo2.id_no
 ;
+
+
+
+--choosing all links, for each species, based on node_ids
+drop table if exists links_grid_pas_trees_40postcent_30agg_by_id_nos;
+create table links_grid_pas_trees_40postcent_30agg_by_id_nos as
+select 
+foo2.id_no,
+foo1.to_node_id,
+foo1.from_node_id,
+min(foo1.distance) as distance
+from 
+links_grid_pas_trees_40postcent_30agg 
+as foo1,
+(select * from grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id)
+as foo2,
+(select  taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*15) as cutoff_dist from dispersal_data) as foo3
+where
+foo3.id_no=left((REPLACE(foo2.id_no, 'sp_', '')), length((REPLACE(foo2.id_no, 'sp_', ''))) - 2)::bigint
+and
+foo1.to_node_id=foo2.node_id
+or 
+foo1.from_node_id=foo2.node_id
+and
+foo1.distance<foo3.cutoff_dist
+group by 
+foo1.from_node_id,
+foo1.to_node_id,
+foo2.id_no
+;
+
+
+
+
+
+
+
 
 create index links_grid_pas_trees_40postcent_30agg_by_id_nos_index on links_grid_pas_trees_40postcent_30agg_by_id_nos(from_node_id);
 create index links_grid_pas_trees_40postcent_30agg_by_id_nos_index2 on links_grid_pas_trees_40postcent_30agg_by_id_nos(to_node_id);
@@ -231,8 +316,7 @@ foo1.to_node_id,
 foo2.id_no
 ;
 
-
-select * from links_grid_pas_trees_40postcent_30agg_by_id_nos_filt2;
+select count(*) from links_grid_pas_trees_40postcent_30agg_by_id_nos_filt2;
 
 copy links_grid_pas_trees_40postcent_30agg_by_id_nos_filt2 to 
 'C:/Data/cci_connectivity/scratch/links.csv' delimiter ',';
@@ -241,6 +325,7 @@ copy grid_pas_trees_40postcent_30agg_by_nodeids to
 'C:/Data/cci_connectivity/scratch/nodes.csv' delimiter ',';
 
 select id_no, count(node_id) from grid_pas_trees_40postcent_30agg_by_nodeids group by id_no
+
 
 ----------------
 --buffer tool

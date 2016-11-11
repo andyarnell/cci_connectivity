@@ -50,6 +50,8 @@ arcpy.env.workspace = wkspce1
 
 print "Making list of rasters to trim from: " + wkspce1
 rstList = arcpy.ListRasters()
+print rstList
+
 
 #getting coordinate system of forest raster
 spatialRef = arcpy.Describe(trimRst).spatialReference
@@ -79,7 +81,7 @@ outFile = open(txtFile, "w")
 
 #set counter
 i = 0
-for rst in rstList[261:]:
+for rst in rstList[0:]:
     i += 1
     beginTime1a = time.clock()
     arcpy.env.workspace = wkspce1

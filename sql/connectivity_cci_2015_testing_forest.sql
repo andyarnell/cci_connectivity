@@ -119,11 +119,13 @@ ANALYZE sp_merged_all_union;
 
 drop table if exists grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean;
 create table grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean as
-(select st_makevalid(st_buffer(the_geom,0)) as the_geom, nodeiddiss as node_id, fid_grid50 as gird_id, area_geo as area, fid_pas_in as wdpa from grid_pas_trees_40postcent_30agg_diss_ovr1ha offset 0);
+(select st_makevalid(st_buffer(the_geom,0)) as the_geom, nodeiddiss as node_id, fid_grid50 as grid_id, area_geo as area, fid_pas_in as wdpa from grid_pas_trees_40postcent_30agg_diss_ovr1ha offset 0);
 
 CREATE INDEX grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean_geom_gist ON grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean USING GIST (the_geom);
 CLUSTER grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean USING grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean_geom_gist;
 ANALYZE grid_pas_trees_40postcent_30agg_diss_ovr1ha_clean;
+
+
 
 --importing dispersal data
 DROP TABLE IF EXISTS dispersal_data;
@@ -196,8 +198,8 @@ where foo1.id_no=foo2.id_no;
 
 
 --getting nodeids touching species
-drop table if exists grid_pas_trees_40postcent_30agg_by_nodeids;
-create table grid_pas_trees_40postcent_30agg_by_nodeids as
+drop table if exists int_grid_pas_trees_40postcent_30agg_by_nodeids;
+create table int_grid_pas_trees_40postcent_30agg_by_nodeids as
 select 
 foo2.id_no,
 foo2.id_no1,
@@ -236,13 +238,17 @@ foo2.season
 
 
 
---select count(*) from grid_pas_trees_40postcent_30agg_by_nodeids limit 10;
+
+--select count(*) from int_grid_pas_trees_40postcent_30agg_by_nodeids limit 10;
 
 
 --make sure there are indexes on both tables
---drop index grid_pas_trees_40postcent_30agg_by_nodeids_index
-create index grid_pas_trees_40postcent_30agg_by_nodeids_node_id_index on grid_pas_trees_40postcent_30agg_by_nodeids (node_id);
-create index grid_pas_trees_40postcent_30agg_by_nodeids_idno_index on grid_pas_trees_40postcent_30agg_by_nodeids (id_no);
+--drop index int_grid_pas_trees_40postcent_30agg_by_nodeids_index
+create index int_grid_pas_trees_40postcent_30agg_by_nodeids_node_id_index on int_grid_pas_trees_40postcent_30agg_by_nodeids (node_id);
+create index int_grid_pas_trees_40postcent_30agg_by_nodeids_idno_index on int_grid_pas_trees_40postcent_30agg_by_nodeids (id_no);
+
+
+
 
 --choosing all links, for each species, based on node_ids
 drop table if exists links_grid_pas_trees_40postcent_30agg_by_id_nos;
@@ -255,7 +261,7 @@ min(foo1.distance) as distance
 from 
 links_grid_pas_trees_40postcent_30agg 
 as foo1,
-(select * from grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id)
+(select * from int_grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id)
 as foo2
 where
 foo1.to_node_id=foo2.node_id
@@ -267,44 +273,47 @@ foo1.to_node_id,
 foo2.id_no
 ;
 
---drop index grid_pas_trees_40postcent_30agg_by_nodeids_index
-create index grid_pas_trees_40postcent_30agg_by_nodeids_index_id_no1 on grid_pas_trees_40postcent_30agg_by_nodeids (id_no1);
-create index grid_pas_trees_40postcent_30agg_by_nodeids_index_season on grid_pas_trees_40postcent_30agg_by_nodeids (season);
+--drop index int_grid_pas_trees_40postcent_30agg_by_nodeids_index
+create index int_grid_pas_trees_40postcent_30agg_by_nodeids_index_id_no1 on int_grid_pas_trees_40postcent_30agg_by_nodeids (id_no1);
+create index int_grid_pas_trees_40postcent_30agg_by_nodeids_index_season on int_grid_pas_trees_40postcent_30agg_by_nodeids (season);
 
 
 
 --choosing all links, for each species, based on node_ids
-drop table if exists links_grid_pas_trees_40postcent_30agg_by_id_nos;
-create table links_grid_pas_trees_40postcent_30agg_by_id_nos as
+drop table if exists links_grid_pas_trees_40postcent_30agg_by_id_nos1;
+create table links_grid_pas_trees_40postcent_30agg_by_id_nos1 as
 select 
-foo2.id_no,
+foo2.id_no1,
+foo2.season,
 foo1.to_node_id,
 foo1.from_node_id,
 min(foo1.distance) as distance
 from 
 links_grid_pas_trees_40postcent_30agg 
 as foo1,
-(select * from grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id limit 100)
+(select * from int_grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id limit 100)
 as foo2,
 (select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*10) as cutoff_dist from dispersal_data)
-as foo3,
-sp_category as foo4
+as foo3
+/*,
+sp_category as foo4*/
 where
-foo3.id_no=left((REPLACE(foo2.id_no, 'sp_', '')), length((REPLACE(foo2.id_no, 'sp_', ''))) - 2)::bigint
+foo3.id_no=foo2.id_no1
 and
 foo1.to_node_id=foo2.node_id
+/* 
 and
 foo4.id_no=foo3.id_no
+*/
 or 
 foo1.from_node_id=foo2.node_id
 and
 foo1.distance<foo3.cutoff_dist
-and 
-foo4.category in ('CR','EN','VU')
 group by 
 foo1.from_node_id,
 foo1.to_node_id,
-foo2.id_no
+foo2.id_no1,
+foo2.season
 ;
 
 
@@ -328,7 +337,7 @@ min(foo1.distance) as distance
 from 
 links_grid_pas_trees_40postcent_30agg_by_id_nos 
 as foo1,
-(select * from grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id)
+(select * from int_grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id)
 as foo2
 where
 foo1.id_no=foo2.id_no
@@ -354,7 +363,7 @@ min(foo1.distance) as distance
 from 
 links_grid_pas_trees_40postcent_30agg_by_id_nos_filt1 
 as foo1,
-(select * from grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id)
+(select * from int_grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id)
 as foo2
 where
 foo1.id_no=foo2.id_no
@@ -371,10 +380,10 @@ select count(*) from links_grid_pas_trees_40postcent_30agg_by_id_nos_filt2;
 copy links_grid_pas_trees_40postcent_30agg_by_id_nos_filt2 to 
 'C:/Data/cci_connectivity/scratch/links.csv' delimiter ',';
 
-copy grid_pas_trees_40postcent_30agg_by_nodeids to 
+copy int_grid_pas_trees_40postcent_30agg_by_nodeids to 
 'C:/Data/cci_connectivity/scratch/nodes.csv' delimiter ',';
 
-select id_no, count(node_id) from grid_pas_trees_40postcent_30agg_by_nodeids group by id_no
+select id_no, count(node_id) from int_grid_pas_trees_40postcent_30agg_by_nodeids group by id_no
 
 
 ----------------

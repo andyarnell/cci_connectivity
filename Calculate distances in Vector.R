@@ -6,7 +6,7 @@ library(rgeos)
 library(rgdal)
 
 #Load shapefile in latlong projection
-au_ll<-readShapePoly("/Users/Oritteropus/Desktop/Progetti/Global_PA_Network/mappe/Africa/Africa", IDvar="wdpaid", proj4string=CRS("+proj=longlat +datum=WGS84"))
+au_ll<-readShapePoly("C:/Data/cci_connectivity/scratch/spp_refined/40pcent/vector/sp_22678843_1.shp", IDvar="patchID", proj4string=CRS("+proj=longlat +datum=WGS84"))
 
 #To calculate distances with gDistance function, each polygon must be "single part", so in this step I make an MCP of all multipart polygons
 au_ll2<-gConvexHull(au_ll, byid=TRUE)
@@ -42,4 +42,5 @@ OUT<-apply(OUT, 2, as.numeric) #for some reasons the values are considered as ch
 #saves output file
 write.csv(OUT, "Distances.csv", row.names=FALSE)
 
+head(OUT)
 

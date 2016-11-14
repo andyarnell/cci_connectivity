@@ -35,7 +35,7 @@ SET client_min_messages TO DEBUG;
 --with option to filter by distance table
 drop table if exists links_grid_pas_trees_40postcent_30agg;
 create table links_grid_pas_trees_40postcent_30agg AS 
-select
+select 
 a.node_id AS from_node_id, 
 b.node_id AS to_node_id,
 st_transform(st_shortestline(a.the_geom,b.the_geom),54032) as the_geom/*,
@@ -49,6 +49,13 @@ as  b
 where
 st_dwithin(a.the_geom,b.the_geom, 200000/*c.dist_test*/)
 and a.node_id > b.node_id;
+
+/*create table 
+select distinct to_node_id as select_nodes from links_grid_pas_trees_40postcent_30agg as foo1
+union
+select distinct from_node_id select_nodes from links_grid_pas_trees_40postcent_30agg as foo2;
+*/
+
 
 --adding a link_id column to use to later connect conefor results
 -- ALTER TABLE forest_sp DROP COLUMN link_id;
@@ -291,9 +298,9 @@ min(foo1.distance) as distance
 from 
 links_grid_pas_trees_40postcent_30agg 
 as foo1,
-(select * from int_grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id limit 100)
+(select * from int_grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id limit 1000)
 as foo2,
-(select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*10) as cutoff_dist from dispersal_data)
+(select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*8) as cutoff_dist from dispersal_data)
 as foo3
 /*,
 sp_category as foo4*/
@@ -325,6 +332,7 @@ foo2.season
 
 create index links_grid_pas_trees_40postcent_30agg_by_id_nos_index on links_grid_pas_trees_40postcent_30agg_by_id_nos(from_node_id);
 create index links_grid_pas_trees_40postcent_30agg_by_id_nos_index2 on links_grid_pas_trees_40postcent_30agg_by_id_nos(to_node_id);
+create index links_grid_pas_trees_40postcent_30agg_by_id_nos_index3 on links_grid_pas_trees_40postcent_30agg_by_id_nos(id_no);
 
 
 drop table if exists links_grid_pas_trees_40postcent_30agg_by_id_nos_filt1;

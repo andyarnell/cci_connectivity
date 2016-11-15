@@ -47,7 +47,7 @@ as a,
 (select st_transform(the_geom,54032) as the_geom, nodeiddiss::bigint as node_id from grid_pas_trees_40postcent_30agg_diss_ovr1ha order by node_id) 
 as  b
 where
-st_dwithin(a.the_geom,b.the_geom, 200000/*c.dist_test*/)
+st_dwithin(a.the_geom,b.the_geom, 400000/*c.dist_test*/)
 and a.node_id > b.node_id;
 
 /*create table 

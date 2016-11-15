@@ -1,6 +1,10 @@
 #call conefor batch mode
 setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/test")
 
+
+shell("conefor_1_0_86_bcc_x86.exe -nodeFile nodes_sp_22682638_1.txt  -conFile distances_sp_22682638_1.txt -confAdj 9665.3451 -IIC -nodetypes")
+
+
 shell("conefor_1_0_86_bcc_x86.exe -nodeFile nodes_  -conFile distances_ -* -confAdj 21000 -IIC -nodetypes")
 
 shell("conefor_1_0_86_bcc_x86.exe -nodeFile nodes_ -conFile distances_ -* -confProb 7112.854473 0.36788 -PC onlyoverall")

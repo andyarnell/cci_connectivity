@@ -32,9 +32,6 @@ head(res.allsub)
 hist(log(res.allsub$V5),xlim=c(0,35), ylim=c(0,3000))
 summary(res.PC)
 
-
 ?lapply
 
-
 #resmean<-aggregate(nodes,by=list(nodes$sciname),FUN=mean)
-

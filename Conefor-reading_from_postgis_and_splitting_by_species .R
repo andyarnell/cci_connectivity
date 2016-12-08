@@ -27,9 +27,8 @@ dbListTables(con)
 
 ##set working directory for outputs to be sent to
 setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs")
+
 getwd()
-
-
 
 
 # Create SQL statement. Change to get the columns and state you want.
@@ -38,7 +37,7 @@ getwd()
 ##to be converted into well known text format (ST_AsText)
 ##then read by R into a spatialpolygonsdataframe (I have only managed this with wgs84 format datasets so far)
 strSQL = "SELECT from_node_id, to_node_id, id_no, distance 
-FROM cci_2015.links_grid_pas_trees_40postcent_30agg_by_id_nos_filt2;"
+FROM cci.links_grid_pas_trees_40postcent_30agg_sbset1;"
 
 
 ##get data from  postgresql database
@@ -53,6 +52,7 @@ head(distances)
 names(distances)
 #from pgis
 names(distances)<-c("from_node_id","to_node_id","sciname","distance")
+
 #from csv
 names(distances)<-c("sciname","to_node_id","from_node_id","distance")
 
@@ -65,7 +65,13 @@ length(unique(distances$sciname))
  #             function(x)write.table(x[, c("from_node_id", "to_node_id", "distance")], file = paste("distances",x$sciname[1],".txt")
   #                                   , sep = "\t", col.names = FALSE, row.names = FALSE, quote=F))
 
+
+
+
+
 #write dataframe to multiple text files using d_ply and column to split dataframe
+
+
 #d_ply seems similar to lappy but info says it doesn't save results - just carries out function - though I can't see difference
 d_ply(distances, "sciname", function(x)
   write.table(x[, c("from_node_id", "to_node_id", "distance")], file = paste0("distances_",x$sciname[1],".txt")

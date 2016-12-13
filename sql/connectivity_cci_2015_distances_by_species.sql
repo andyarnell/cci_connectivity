@@ -107,7 +107,7 @@ foo1.grid_id
 --add in equidistant column (quicker for next steps)
 alter table int_grid_pas_trees_40postcent_30agg_by_nodeids
 add column 
-the_geom_azim_eq_dist geometry(Geometry,54032)
+the_geom_azim_eq_dist geometry(Geometry,54032);
 
 --#populate it from transforming previous one
 UPDATE int_grid_pas_trees_40postcent_30agg_by_nodeids SET the_geom_azim_eq_dist = ST_Transform(the_geom, 54032)
@@ -127,10 +127,7 @@ CREATE INDEX int_grid_pas_trees_40postcent_30agg_by_nodeids_geom_gist ON int_gri
 CLUSTER int_grid_pas_trees_40postcent_30agg_by_nodeids USING int_grid_pas_trees_40postcent_30agg_by_nodeids_geom_gist;
 ANALYZE int_grid_pas_trees_40postcent_30agg_by_nodeids;
 
-
-
-select count (distinct (node_id)) from int_grid_pas_trees_40postcent_30agg_by_nodeids group by id_no order by count desc;
-
+(select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, id_no, season as season1, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids where id_no = 'sp_22681765_1') 
 
 --calculating distance between nodes for each species indivudally 
 --with option to filter by distance table
@@ -142,30 +139,36 @@ b.node_id AS to_node_id,
 a.grid_id as from_grid_id,
 b.grid_id as to_grid_id,
 a.id_no1,
-a.season1,
-/*st_transform(st_shortestline(a.the_geom,b.the_geom),54032) as the_geom,
-st_buffer(st_transform(st_shortestline(a.the_geom,b.the_geom),54032),(st_distance(a.the_geom,b.the_geom)/5)) AS the_geombff*/
-st_distance(a.the_geom,b.the_geom) AS distance
+a.season,
+/*st_shortestline(a.the_geom,b.the_geom) as the_geom,
+st_buffer(st_shortestline(a.the_geom,b.the_geom)),(st_distance(a.the_geom,b.the_geom)/5)) AS the_geombff*/
+min(st_distance(a.the_geom,b.the_geom)) AS distance
 from
-(select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, season as season1, node_id, grid_id, season from int_grid_pas_trees_40postcent_30agg_by_nodeids) 
+(select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, season, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids) 
 as a,
-(select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, season as season2, node_id, grid_id, season from int_grid_pas_trees_40postcent_30agg_by_nodeids) 
+(select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, season, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids) 
 as  b,
-(select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*10*1000) as cutoff_dist from dispersal_data) 
-as c
+(select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*10*1000)::bigint as cutoff_dist from dispersal_data order by cutoff_dist desc) 
+as c,
+(select id_no1, season, count from (select id_no1, season, count (distinct (node_id)) from int_grid_pas_trees_40postcent_30agg_by_nodeids group by id_no1,season order by count desc) as foo where count >100 and count <120) as d
 where
 /*st_dwithin(a.the_geom,b.the_geom, 500000)
-and */a.node_id > b.node_id
-and c.id_no=a.id_no1
+and */
+a.node_id > b.node_id
+and d.id_no1=a.id_no1
+and d.season=a.season
+and d.id_no1=b.id_no1
+and d.season=b.season
 and st_distance(a.the_geom,b.the_geom)<c.cutoff_dist
 group by  
 from_node_id, 
 to_node_id, 
 a.id_no1, 
-a.season1, 
+a.season, 
 from_grid_id, 
 to_grid_id 
 ,a.the_geom, 
 b.the_geom
 ;
 
+select * from links_grid_pas_trees_40postcent_30agg_sbset1 order by distance desc; limit 10;

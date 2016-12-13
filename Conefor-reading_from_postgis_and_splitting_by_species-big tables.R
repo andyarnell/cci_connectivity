@@ -91,21 +91,22 @@ spList<-unique(nodes$sciname)
 #################################################################
 
 strSQL="(select id_no1, season, count from (select id_no, id_no1, season::int, count (distinct (node_id)) 
-from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids group by id_no, id_no1,season order by count desc) as foo where count<100 and count >10)"
+from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids group by id_no, id_no1,season order by count desc) as foo where count>1 and count <4000)"
 spList<- dbSendQuery(con, strSQL)   ## Submits a sql statement
 ##place data in dataframe
 spList<-fetch(spList,n=-1)
+
 
 head(spList)
 str(spList)
 #spList<-list(spList$id_no1)
 spList
-
-for (i in 1:length(spList$id_no1)){
-  id_no1<-spList$id_no1[i]
-  season<-spList$season[i]
-  print (id_no1)}
-  print (spList$count[i])
+# 
+# for (i in 1:length(spList$id_no1)){
+#   id_no1<-spList$id_no1[i]
+#   season<-spList$season[i]
+#   print (id_no1)}
+#   print (spList$count[i])
 
 
 for (i in 1:length(spList$id_no)){
@@ -113,39 +114,34 @@ for (i in 1:length(spList$id_no)){
   season<-spList$season[i]
   print (id_no1)
   print (season)
-  print(count[i])
-  
+  print(spList$count[i])
+  print (i)
   strSQL=
   paste0("SET search_path=cci_2015,public,topology;
   select 
+  a.area as from_area,
+  b.area as to_area,
+  a.wdpa as from_wdpa,
+  b.wdpa as to_wdpa,
   a.node_id AS from_node_id, 
   b.node_id AS to_node_id,
   a.grid_id as from_grid_id,
   b.grid_id as to_grid_id,
   a.id_no1,
   a.season,
-  /*st_shortestline(a.the_geom,b.the_geom) as the_geom,
-  st_buffer(st_transform(st_shortestline(a.the_geom,b.the_geom),54032),(st_distance(a.the_geom,b.the_geom)/5)) AS the_geombff*/
   st_distance(a.the_geom,b.the_geom) AS distance
   from
-  (select the_geom_azim_eq_dist as the_geom, id_no1, id_no, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids where id_no1 =",id_no1," and season::int = ",season,")
+  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids where id_no1 =",id_no1," and season::int = ",season,")
   as a,
-  (select the_geom_azim_eq_dist as the_geom, id_no1, id_no, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids where id_no1 =",id_no1," and season::int = ",season,")  
+  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids where id_no1 =",id_no1," and season::int = ",season,")  
    as  b,
-  (select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*10*1000) as cutoff_dist from dispersal_data) 
+  (select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*8*1000) as cutoff_dist from dispersal_data where taxon_id =", id_no1,") 
   as c
   where
   a.node_id > b.node_id
   and st_distance(a.the_geom,b.the_geom)<c.cutoff_dist
-  group by  
-  from_node_id, 
-  to_node_id, 
-  a.id_no1, 
-  a.season, 
-  from_grid_id, 
-  to_grid_id 
-  ,a.the_geom, 
-  b.the_geom;")
+  and c.id_no=a.id_no1;")
+
   strSQL=gsub("\n", "", strSQL)
   print(strSQL)
   distances<- dbSendQuery(con, strSQL)   ## Submits a sql statement
@@ -155,10 +151,50 @@ for (i in 1:length(spList$id_no)){
   head(distances)
   #from pgis
   x<-distances
-  write.table(x[, c("from_node_id", "to_node_id", "distance")], file = paste0("distances_",x$id_no[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
-
+  if (length(x[1,])==0){
+    print("error")
+  }  else {
+    write.table(x[, c("from_node_id", "to_node_id", "distance")], file = paste0("distances_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
+  }
+ if (length(x[1,])==0){
+   print("error")
+  }  else {
+#     x1<-unique(x[,c("from_node_id", "from_area", "from_wdpa")])
+#     x2<-unique(x[,c("to_node_id", "to_area", "to_wdpa")])
+#     names(x2)<-c("node_id", "area", "wdpa")
+#     names(x1)<-c("node_id", "area", "wdpa")
+#     nodes<-rbind(x1,x2)
+#     str(nodes)
+    
+    print (dbListResults(con)[[1]])
+    strSQL=paste0("SET search_path=cci_2015,public,topology; 
+    (select node_id, area, wdpa from int_grid_pas_trees_40postcent_30agg_by_nodeids where id_no1 =",id_no1," and season::int = ",season,")" )
+    strSQL=gsub("\n", "", strSQL)
+    print(strSQL)
+    nodes<- dbSendQuery(con, strSQL)   ## Submits a sql statement
+    nodes<-fetch(nodes,n=-1)
+    write.table(nodes[, c("node_id", "area", "wdpa")], file = paste0("nodes_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
+    
+  } 
 }
 
+
+# 
+# postgresqlTransactionStatement <- function(con, statement) {
+#   ## are there resultSets pending on con?
+#   if(length(dbListResults(con)) > 0){
+#     res <- dbListResults(con)[[1]]
+#     if(!dbHasCompleted(res)){
+#       stop("connection with pending rows, close resultSet before continuing")
+#     }
+#     dbClearResult(res)
+#   }
+#   
+#   rc <- try(dbGetQuery(con, statement))
+#   !inherits(rc, ErrorClass)
+# }
+# 
+# postgresqlTransactionStatement(con,strSQL)
 
 
 #write dataframe to multiple text files using d_ply and column to split dataframe

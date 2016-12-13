@@ -142,15 +142,16 @@ a.id_no1,
 a.season,
 /*st_shortestline(a.the_geom,b.the_geom) as the_geom,
 st_buffer(st_shortestline(a.the_geom,b.the_geom)),(st_distance(a.the_geom,b.the_geom)/5)) AS the_geombff*/
-min(st_distance(a.the_geom,b.the_geom)) AS distance
+(st_distance(a.the_geom,b.the_geom)) AS distance
 from
 (select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, season, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids) 
 as a,
 (select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, season, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids) 
 as  b,
-(select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*10*1000)::bigint as cutoff_dist from dispersal_data order by cutoff_dist desc) 
+(select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*8*1000)::bigint as cutoff_dist from dispersal_data order by cutoff_dist desc) 
 as c,
-(select id_no1, season, count from (select id_no1, season, count (distinct (node_id)) from int_grid_pas_trees_40postcent_30agg_by_nodeids group by id_no1,season order by count desc) as foo where count >100 and count <120) as d
+(select id_no1, season, count from (select id_no1, season, count (distinct (node_id)) from int_grid_pas_trees_40postcent_30agg_by_nodeids group by id_no1,season order by count desc) as foo where count >1 and count <100) 
+as d
 where
 /*st_dwithin(a.the_geom,b.the_geom, 500000)
 and */
@@ -160,6 +161,7 @@ and d.season=a.season
 and d.id_no1=b.id_no1
 and d.season=b.season
 and st_distance(a.the_geom,b.the_geom)<c.cutoff_dist
+and c.id_no=a.id_no1
 group by  
 from_node_id, 
 to_node_id, 
@@ -171,4 +173,7 @@ to_grid_id
 b.the_geom
 ;
 
+
 select * from links_grid_pas_trees_40postcent_30agg_sbset1 order by distance desc; limit 10;
+
+

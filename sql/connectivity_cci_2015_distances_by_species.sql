@@ -54,19 +54,21 @@ lwr_05,
 final_value_to_use)
 from 'C:\Data\cci_connectivity\scratch\dispersal\bird_dispersal_edit.csv'  delimiter ',' header CSV;
 
-drop table if exists grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean;
-create table grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean as
-(select st_makevalid(st_buffer(the_geom,0)) as the_geom, nodeiddiss as node_id, fid_grid50 as grid_id, area_geo as area, fid_pas_in as wdpa from grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1 offset 0);
 
-CREATE INDEX grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean_geom_gist ON grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean USING GIST (the_geom);
-CLUSTER grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean USING grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean_geom_gist;
-ANALYZE grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean;
+drop table if exists grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean;
+create table grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean as
+(select st_makevalid(st_buffer(the_geom,0)) as the_geom, ((eco_num::int)::varchar||nodeiddiss::varchar)::int as node_id, fid_grid50 as grid_id, area_geo as area, fid_pas_in as wdpa from grid_pas_trees_40postcent_30agg_diss_ovr1ha_ecoregions offset 0);
 
+select ((eco_num::int)::varchar||nodeiddiss::varchar)::int as node_id from grid_pas_trees_40postcent_30agg_diss_ovr1ha_ecoregions limit 1000;
+
+CREATE INDEX grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean_geom_gist ON grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean USING GIST (the_geom);
+CLUSTER grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean USING grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean_geom_gist;
+ANALYZE grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean;
 
 
 --getting nodeids touching species
-drop table if exists int_grid_pas_trees_40postcent_30agg_by_nodeids;
-create table int_grid_pas_trees_40postcent_30agg_by_nodeids as
+drop table if exists int_grid_pas_trees_40postcent_30agg_by_nodeids_eco;
+create table int_grid_pas_trees_40postcent_30agg_by_nodeids_eco as
 select 
 foo2.id_no,
 foo2.id_no1,
@@ -77,7 +79,7 @@ foo1.the_geom,
 min(foo1.area) as area,
 min(case when (wdpa>-1) then 1 else -1 end) as wdpa
 from 
-grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean
+grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean
 as foo1,
 /*(select id_no, st_makevalid(st_transform(st_buffer(the_geom,0),54032)) as the_geom from forest_aves_in_africa order by id_no)*/
 /*(select spp_id as id_no, the_geom  from sp_merged_all order by spp_id limit 200) */ 
@@ -105,34 +107,36 @@ foo1.grid_id
 ;
 
 --add in equidistant column (quicker for next steps)
-alter table int_grid_pas_trees_40postcent_30agg_by_nodeids
+alter table int_grid_pas_trees_40postcent_30agg_by_nodeids_eco
 add column 
 the_geom_azim_eq_dist geometry(Geometry,54032);
 
 --#populate it from transforming previous one
-UPDATE int_grid_pas_trees_40postcent_30agg_by_nodeids SET the_geom_azim_eq_dist = ST_Transform(the_geom, 54032)
+UPDATE int_grid_pas_trees_40postcent_30agg_by_nodeids_eco SET the_geom_azim_eq_dist = ST_Transform(the_geom, 54032)
 FROM spatial_ref_sys WHERE ST_SRID(the_geom) = srid;
 
+--this bit took a day for all species and with whole africa
 
---drop index int_grid_pas_trees_40postcent_30agg_by_nodeids_index
-create index int_grid_pas_trees_40postcent_30agg_by_nodeids_index_id_no1 on int_grid_pas_trees_40postcent_30agg_by_nodeids (id_no1);
-create index int_grid_pas_trees_40postcent_30agg_by_nodeids_index_season on int_grid_pas_trees_40postcent_30agg_by_nodeids (season);
-create index int_grid_pas_trees_40postcent_30agg_by_nodeids_index_node_id on int_grid_pas_trees_40postcent_30agg_by_nodeids (node_id);
+--drop index int_grid_pas_trees_40postcent_30agg_by_nodeids_eco_index
+create index int_grid_pas_trees_40postcent_30agg_by_nodeids_eco_index_id_no1 on int_grid_pas_trees_40postcent_30agg_by_nodeids_eco (id_no1);
+create index int_grid_pas_trees_40postcent_30agg_by_nodeids_eco_index_season on int_grid_pas_trees_40postcent_30agg_by_nodeids_eco (season);
+create index int_grid_pas_trees_40postcent_30agg_by_nodeids_eco_index_node_id on int_grid_pas_trees_40postcent_30agg_by_nodeids_eco (node_id);
 
-CREATE INDEX int_grid_pas_trees_40postcent_30agg_by_nodeids_the_geom_azim_eq_dist_gist ON int_grid_pas_trees_40postcent_30agg_by_nodeids USING GIST (the_geom_azim_eq_dist);
-CLUSTER int_grid_pas_trees_40postcent_30agg_by_nodeids USING int_grid_pas_trees_40postcent_30agg_by_nodeids_the_geom_azim_eq_dist_gist;
-ANALYZE int_grid_pas_trees_40postcent_30agg_by_nodeids;
+CREATE INDEX int_grid_pas_trees_40postcent_30agg_by_nodeids_eco_the_geom_azim_eq_dist_gist ON int_grid_pas_trees_40postcent_30agg_by_nodeids_eco USING GIST (the_geom_azim_eq_dist);
+CLUSTER int_grid_pas_trees_40postcent_30agg_by_nodeids_eco USING int_grid_pas_trees_40postcent_30agg_by_nodeids_eco_the_geom_azim_eq_dist_gist;
+ANALYZE int_grid_pas_trees_40postcent_30agg_by_nodeids_eco;
 
-CREATE INDEX int_grid_pas_trees_40postcent_30agg_by_nodeids_geom_gist ON int_grid_pas_trees_40postcent_30agg_by_nodeids USING GIST (the_geom);
-CLUSTER int_grid_pas_trees_40postcent_30agg_by_nodeids USING int_grid_pas_trees_40postcent_30agg_by_nodeids_geom_gist;
-ANALYZE int_grid_pas_trees_40postcent_30agg_by_nodeids;
+CREATE INDEX int_grid_pas_trees_40postcent_30agg_by_nodeids_eco_geom_gist ON int_grid_pas_trees_40postcent_30agg_by_nodeids_eco USING GIST (the_geom);
+CLUSTER int_grid_pas_trees_40postcent_30agg_by_nodeids_eco USING int_grid_pas_trees_40postcent_30agg_by_nodeids_eco_geom_gist;
+ANALYZE int_grid_pas_trees_40postcent_30agg_by_nodeids_eco;
 
-(select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, id_no, season as season1, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids where id_no = 'sp_22681765_1') 
 
---calculating distance between nodes for each species indivudally 
+(select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, id_no, season as season1, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco where id_no = 'sp_22681765_1') 
+
+--calculating distance between nodes for each species individually 
 --with option to filter by distance table
-drop table if exists links_grid_pas_trees_40postcent_30agg_sbset1;
-create table links_grid_pas_trees_40postcent_30agg_sbset1 AS 
+drop table if exists links_grid_pas_trees_40postcent_30agg_eco1;
+create table links_grid_pas_trees_40postcent_30agg_eco1 AS 
 select 
 a.node_id AS from_node_id, 
 b.node_id AS to_node_id,
@@ -140,17 +144,20 @@ a.grid_id as from_grid_id,
 b.grid_id as to_grid_id,
 a.id_no1,
 a.season,
+a.eco_unit,
 /*st_shortestline(a.the_geom,b.the_geom) as the_geom,
 st_buffer(st_shortestline(a.the_geom,b.the_geom)),(st_distance(a.the_geom,b.the_geom)/5)) AS the_geombff*/
 (st_distance(a.the_geom,b.the_geom)) AS distance
 from
-(select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, season, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids) 
+(select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, season, node_id, grid_id, eco_unit from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco1 limit 100) 
 as a,
-(select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, season, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids) 
+(select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, season, node_id, grid_id, eco_unit  from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco1 limit 100) 
 as  b,
 (select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*8*1000)::bigint as cutoff_dist from dispersal_data order by cutoff_dist desc) 
 as c,
-(select id_no1, season, count from (select id_no1, season, count (distinct (node_id)) from int_grid_pas_trees_40postcent_30agg_by_nodeids group by id_no1,season order by count desc) as foo where count >1 and count <100) 
+
+(select id_no1, season, count (distinct (node_id)) from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco1 group by id_no1,season order by count desc) 
+/*(select id_no1, season, count from (select id_no1, season, count (distinct (node_id)) from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco1 group by id_no1,season order by count desc) as foo where count >1 and count <100) */
 as d
 where
 /*st_dwithin(a.the_geom,b.the_geom, 500000)
@@ -170,10 +177,11 @@ a.season,
 from_grid_id, 
 to_grid_id 
 ,a.the_geom, 
-b.the_geom
+b.the_geom,
+a.eco_unit
 ;
 
 
-select * from links_grid_pas_trees_40postcent_30agg_sbset1 order by distance desc; limit 10;
+select * from links_grid_pas_trees_40postcent_30agg_eco1 order by distance desc; limit 10;
 
 

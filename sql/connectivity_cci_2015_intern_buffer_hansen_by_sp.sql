@@ -100,4 +100,5 @@ from (select * from links_append_clip_sel) as foo;
 --For exporting using ogr2ogr (osgeo4w command line) into separate shapefiles for change maps
 
 ogr2ogr --config FGDB_BULK_LOAD YES  -progress -f "ESRI Shapefile" -sql "SELECT * FROM cci_2015.buff_links_append_clip_sel" C:\Data\cci_connectivity\scratch\intern\euclid\buffer PG:"host=localhost user=postgres password=Seltaeb1 dbname=biodiv_processing" -nln buff_links_append_clip_sel -nlt POLYGON -lco "SHPT=POLYGON"  -a_srs "EPSG:54032"
+ogr2ogr --config FGDB_BULK_LOAD YES  -progress -f "ESRI Shapefile" -sql "SELECT * FROM cci_2015.links_append_clip_sel" C:\Data\cci_connectivity\scratch\intern\euclid\buffer PG:"host=localhost user=postgres password=Seltaeb1 dbname=biodiv_processing" -nln links_append_clip_sel  -a_srs "EPSG:54032"
 */

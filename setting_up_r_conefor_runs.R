@@ -32,16 +32,19 @@ id_list=c()
 #getting id_no (speceis id) from filename - this should be embedded in the filename string somehow sperated by underscores - tweak the TRUE/ FALSE parameters accordingly
 for (file in file_list){
   dt<- strsplit(file,"_")[[1]]#splits string
-  dt<-dt[c(FALSE,FALSE,TRUE,FALSE)]#chooses certain part to keep
+  dt<-dt[c(FALSE,TRUE,FALSE)]#chooses certain part to keep
   print (dt)
   id_list<-append(id_list, dt)
   suffix<-append(suffix,gsub("nodes_", "", file))
   print (suffix)
+  suffix<-gsub(".txt", "", suffix)
 }
 
+
 #view ouptuts
-suffix
-id_list
+suffix# should contain species ID and Season including ".txt" at the end
+id_list# shoudl jsut be species ID
+
 #make a dataframe from the vectors bt column binding 
 id_list<-data.frame(cbind(id_list,suffix))
 #name columns
@@ -69,12 +72,35 @@ missed_joins
 #   write.table(dt, paste0(out_path,"/", i, "_",a))
 # }
 
-setwd(in_path2)#where to put the output csv of command lines
+conversion<-1000
 
-#bit that isn't working completely (cos i'm dense))
-a<- lapply(Com, function(x) {paste0("shell('C:/Data/cci_connectivity/scratch/conefor_runs/inputs/test/coneforWin64.exe -nodeFile nodes_",x[1],".txt -conFile distances_", x[1],".txt -t dist all -confProb ",x[2]," 0.36788 -PC -prefix", x[1],"')")} )
-a<- (unlist(lapply(a, paste, collapse=" ")))
-a
-#
-setwd(out_path)
-write.csv(a, "command_line.csv")
+x<-Com
+###test on first row
+i=1
+test<-paste0("shell('C:/Data/cci_connectivity/scratch/conefor_runs/inputs/test/conefor_1_0_86_bcc_x86.exe -nodeFile nodes_",x[i,2],".txt -conFile distances_", x[i,2],".txt -t dist notall -confProb ",x[i,3]*conversion," 0.36788 -PC -nodetypes -prefix ", x[i,2],"')")  
+test
+
+#shell('C:/Data/cci_connectivity/scratch/conefor_runs/inputs/test/conefor_1_0_86_bcc_x86.exe -nodeFile nodes_22681782_1.txt -conFile distances_22681782.txt -t dist notall -confProb 787.011729 0.36788 -PC -nodetypes -prefix 22681782_1')
+
+command_list=c()
+nodeCount=c()
+#loop through and make commands basded on dataframe
+
+for (i in 1:length(Com[,1])){
+  count<-length(read.table(paste0("nodes_",x[i,2],".txt"))[,1])
+  #if (length(nodeList[,1])<1000){
+  line<-paste0("shell('C:/Data/cci_connectivity/scratch/conefor_runs/inputs/test/conefor_1_0_86_bcc_x86.exe -nodeFile nodes_",x[i,2],".txt -conFile distances_", x[i,2],".txt -t dist notall -confProb ",x[i,3]*conversion," 0.36788 -PC -nodetypes -prefix ", x[i,2],"')")  
+  print (line)
+  print (count)    
+  nodeCount<-append(nodeCount,count)
+  command_list<-append(command_list,line)
+  #} else { 
+   # print("too many nodes, skipping")
+  #}
+}
+
+command_dframe<-data.frame(cbind(command_list,nodeCount))
+command_dframe
+
+setwd(out_path)#where to put the output csv of command lines
+write.csv(command_dframe, "command_line.csv")

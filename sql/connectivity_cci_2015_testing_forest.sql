@@ -31,10 +31,11 @@ SET client_min_messages TO DEBUG;
 
 --select * from grid_pas_trees_40postcent_30agg limit 10;
 
+
 --calculating distance between nodes for each species indivudally 
 --with option to filter by distance table
-drop table if exists links_grid_pas_trees_40postcent_30agg_sbset1;
-create table links_grid_pas_trees_40postcent_30agg_sbset1 AS 
+drop table if exists links_grid_pas_trees_40postcent_30agg_eco;
+create table links_grid_pas_trees_40postcent_30agg_eco AS 
 select 
 a.node_id AS from_node_id, 
 b.node_id AS to_node_id,
@@ -145,13 +146,13 @@ CREATE INDEX sp_merged_all_union_geom_gist ON sp_merged_all_union USING GIST (th
 CLUSTER sp_merged_all_union USING sp_merged_all_union_geom_gist;
 ANALYZE sp_merged_all_union;
 
-drop table if exists grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean;
-create table grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean as
-(select st_makevalid(st_buffer(the_geom,0)) as the_geom, nodeiddiss as node_id, fid_grid50 as grid_id, area_geo as area, fid_pas_in as wdpa from grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1 offset 0);
+drop table if exists grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean;
+create table grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean as
+(select st_makevalid(st_buffer(the_geom,0)) as the_geom, nodeiddiss as node_id, fid_grid50 as grid_id, area_geo as area, fid_pas_in as wdpa from grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco offset 0);
 
-CREATE INDEX grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean_geom_gist ON grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean USING GIST (the_geom);
-CLUSTER grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean USING grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean_geom_gist;
-ANALYZE grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean;
+CREATE INDEX grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean_geom_gist ON grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean USING GIST (the_geom);
+CLUSTER grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean USING grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean_geom_gist;
+ANALYZE grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean;
 
 
 
@@ -238,7 +239,7 @@ foo1.the_geom,
 min(foo1.area) as area,
 min(case when (wdpa>-1) then 1 else -1 end) as wdpa
 from 
-grid_pas_trees_40postcent_30agg_diss_ovr1ha_sbset1_clean
+grid_pas_trees_40postcent_30agg_diss_ovr1ha_eco_clean
 as foo1,
 /*(select id_no, st_makevalid(st_transform(st_buffer(the_geom,0),54032)) as the_geom from forest_aves_in_africa order by id_no)*/
 /*(select spp_id as id_no, the_geom  from sp_merged_all order by spp_id limit 200) */ 
@@ -295,8 +296,8 @@ select count (distinct (node_id)) from int_grid_pas_trees_40postcent_30agg_by_no
 
 --calculating distance between nodes for each species indivudally 
 --with option to filter by distance table
-drop table if exists links_grid_pas_trees_40postcent_30agg_sbset1;
-create table links_grid_pas_trees_40postcent_30agg_sbset1 AS 
+drop table if exists links_grid_pas_trees_40postcent_30agg_eco;
+create table links_grid_pas_trees_40postcent_30agg_eco AS 
 select 
 a.node_id AS from_node_id, 
 b.node_id AS to_node_id,
@@ -380,7 +381,7 @@ foo1.to_node_id,
 foo1.from_node_id,
 min(foo1.distance) as distance
 from 
-links_grid_pas_trees_40postcent_30agg_sbset1 
+links_grid_pas_trees_40postcent_30agg_eco 
 as foo1,
 (select * from int_grid_pas_trees_40postcent_30agg_by_nodeids order by id_no, node_id)
 as foo2,

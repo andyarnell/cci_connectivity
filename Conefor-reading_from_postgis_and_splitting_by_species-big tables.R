@@ -26,81 +26,30 @@ dbListTables(con)
 
 
 ##set working directory for outputs to be sent to
-setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs")
+setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/old")
 
 getwd()
 
-# 
-# # Create SQL statement. Change to get the columns and state you want.
-# ##getting non-spatial data is easy. 
-# ##From what I can tell spatial data, however, requires the geometry column 
-# ##to be converted into well known text format (ST_AsText)
-# ##then read by R into a spatialpolygonsdataframe (I have only managed this with wgs84 format datasets so far)
-# strSQL = "SELECT from_node_id, to_node_id, id_no, distance 
-# FROM cci.links_grid_pas_trees_40postcent_30agg_sbset1;"
-# 
-# 
-# ##get data from  postgresql database
-# distances<-read.csv("C:/Data/cci_connectivity/scratch/links.csv",header=TRUE)
-# 
-# distances<- dbSendQuery(con, strSQL)   ## Submits a sql statement
-# ##place data in dataframe
-# distances<-fetch(distances,n=-1)
-# str(distances)
-# head(distances)
-# 
-# names(distances)
-# #from pgis
-# names(distances)<-c("from_node_id","to_node_id","sciname","distance")
-# 
-# #from csv
-# names(distances)<-c("sciname","to_node_id","from_node_id","distance")
-# 
-# 
-# length(unique(distances$sciname))
 
-#write dataframe to multiple text files using lapply and column to split dataframe
-
-#lapply(split(distances, distances$sciname), 
- #             function(x)write.table(x[, c("from_node_id", "to_node_id", "distance")], file = paste("distances",x$sciname[1],".txt")
-  #                                   , sep = "\t", col.names = FALSE, row.names = FALSE, quote=F))
-#######################################################################################################
-##then read by R into a spatialpolygonsdataframe (I have only managed this with wgs84 format datasets so far)
-strSQL = "SELECT foo.node_id, foo.area, foo.id_no, foo.wdpa
-FROM cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids as foo;"
-
-##get data from  postgresql database
-
-nodes<- dbSendQuery(con, strSQL)   ## Submits a sql statement
-##place data in dataframe
-nodes<-fetch(nodes,n=-1)
-
-str(nodes)
-head(nodes)
-#from pgis
-names(nodes)<-c("gid","sitarea","sciname","remove")
-#from csv
-#names(nodes)<-c("sciname","gid","sitarea","remove")
-
-##fixing error from postgis for notetypes option
-#x=nodes$remove
-#nodes$remove=replace(x, x==0, -1)
-
-spList<-unique(nodes$sciname)
 
 #################################################################
 
 strSQL="(select id_no1, season, count from (select id_no, id_no1, season::int, count (distinct (node_id)) 
-from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids group by id_no, id_no1,season order by count desc) as foo where count>1 and count <4000)"
+from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_eco group by id_no, id_no1,season order by count desc) as foo where count>1)" 
 spList<- dbSendQuery(con, strSQL)   ## Submits a sql statement
 ##place data in dataframe
 spList<-fetch(spList,n=-1)
 
-
 head(spList)
 str(spList)
 #spList<-list(spList$id_no1)
-spList
+
+####################
+
+#######################
+
+
+#########################################
 # 
 # for (i in 1:length(spList$id_no1)){
 #   id_no1<-spList$id_no1[i]
@@ -109,7 +58,48 @@ spList
 #   print (spList$count[i])
 
 
-for (i in 1:length(spList$id_no)){
+sp_status<-read.csv("C:/Data/cci_connectivity/raw/species/spp_name_id_category_joined.csv")
+
+str(sp_status)
+
+#join to status from IUCN Red List
+spList<-merge(spList,sp_status,by.x="id_no1",by.y="id_no",all.x=TRUE)
+head(spList)
+
+
+##################################################################
+###subsetting if needed
+
+#select those that are threatened (i.e. not Least Concern)
+spList.sub<-subset(spList,spList$category!="LC")
+spList.sub.excl.status<-subset(spList,spList$category=="LC")
+#copy list of threatened speceis excluded by status to csv
+write.csv(spList.sub.excl.status,"excluded_species_least_concern.csv",row.names=F)
+
+head(spList.sub)
+
+#select from those under 10000 nodes
+#node threshold 
+node_threshold<-8000
+spList.sub.incl<-subset(spList.sub,spList.sub$count<=node_threshold)
+spList.sub.excl.nodes<-subset(spList.sub,spList.sub$count>node_threshold)
+#copy list of threatened speceis excluded by node threshold to csv
+write.csv(spList.sub.excl.nodes,"excluded_species_threshold.csv",row.names=F)
+
+#copy list of included species
+write.csv(spList.sub.incl,paste0("included_species_crenvunt_",node_threshold,".csv"),row.names=F)
+
+spList.sub<-droplevels(spList.sub)
+str(spList.sub)
+
+unique(spList.sub$id_no1)
+
+spList<-spList.sub
+
+
+###########################################
+
+for (i in 1:213){#length(spList$id_no)){
   id_no1<-spList$id_no1[i]
   season<-spList$season[i]
   print (id_no1)
@@ -131,9 +121,9 @@ for (i in 1:length(spList$id_no)){
   a.season,
   st_distance(a.the_geom,b.the_geom) AS distance
   from
-  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids where id_no1 =",id_no1," and season::int = ",season,")
+  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco where id_no1 =",id_no1," and season::int = ",season,")
   as a,
-  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids where id_no1 =",id_no1," and season::int = ",season,")  
+  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco where id_no1 =",id_no1," and season::int = ",season,")  
    as  b,
   (select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*8*1000) as cutoff_dist from dispersal_data where taxon_id =", id_no1,") 
   as c
@@ -141,7 +131,6 @@ for (i in 1:length(spList$id_no)){
   a.node_id > b.node_id
   and st_distance(a.the_geom,b.the_geom)<c.cutoff_dist
   and c.id_no=a.id_no1;")
-
   strSQL=gsub("\n", "", strSQL)
   print(strSQL)
   distances<- dbSendQuery(con, strSQL)   ## Submits a sql statement
@@ -168,15 +157,21 @@ for (i in 1:length(spList$id_no)){
     
     print (dbListResults(con)[[1]])
     strSQL=paste0("SET search_path=cci_2015,public,topology; 
-    (select node_id, area, wdpa from int_grid_pas_trees_40postcent_30agg_by_nodeids where id_no1 =",id_no1," and season::int = ",season,")" )
+    (select node_id, area, wdpa from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco where id_no1 =",id_no1," and season::int = ",season,")" )
     strSQL=gsub("\n", "", strSQL)
-    print(strSQL)
+    #print(strSQL)
     nodes<- dbSendQuery(con, strSQL)   ## Submits a sql statement
     nodes<-fetch(nodes,n=-1)
+    ##fixing error from postgis for notetypes option
+    #x=nodes$wdpa
+    #nodes$wdpa=replace(nodes$wdpa, nodes$wdpa==0, -1)
     write.table(nodes[, c("node_id", "area", "wdpa")], file = paste0("nodes_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
     
   } 
 }
+
+
+
 
 
 # 
@@ -204,39 +199,39 @@ for (i in 1:length(spList$id_no)){
 # d_ply(distances, "sciname", function(x)
 #   write.table(x[, c("from_node_id", "to_node_id", "distance")], file = paste0("distances_",x$sciname[1],".txt")
 #               , sep = "\t", col.names = FALSE, row.names = FALSE, quote=F))
-
-nodes<-read.csv("C:/Data/cci_connectivity/scratch/nodes.csv",header=FALSE)
-
-
-strSQL="(select id_no1, season, count from (select id_no, id_no1, season::int, count (distinct (node_id)) 
-from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids group by id_no, id_no1,season order by count desc) as foo where count<100 and count >10)"
-
-##then read by R into a spatialpolygonsdataframe (I have only managed this with wgs84 format datasets so far)
-strSQL = "SELECT foo.node_id, foo.area, foo.id_no, foo.wdpa
-FROM cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids  as foo inner join
-(select distinct id_no from cci_2015.links_grid_pas_trees_40postcent_30agg_by_id_nos_filt2) as foo2
-on foo.id_no=foo2.id_no;"
-
-##get data from  postgresql database
-
-nodes<- dbSendQuery(con, strSQL)   ## Submits a sql statement
-##place data in dataframe
-nodes<-fetch(nodes,n=-1)
-
-str(nodes)
-head(nodes)
-#from pgis
-names(nodes)<-c("gid","sitarea","sciname","remove")
-#from csv
-names(nodes)<-c("sciname","gid","sitarea","remove")
-
-##fixing error from postgis for notetypes option
-x=nodes$remove
-nodes$remove=replace(x, x==0, -1)
-
-#write dataframe to multiple text files using d_ply and column to split dataframe
-#d_ply seems similar to lapply but info says it doesn't save results - just carries out function - though I can't see difference
-d_ply(nodes, "sciname", function(x)
-  write.table(x[, c("gid", "sitarea","remove")], file = paste0("nodes_",x$sciname[1],".txt")
-              , sep = "\t", col.names = FALSE, row.names = FALSE, quote=F))
-
+# 
+# nodes<-read.csv("C:/Data/cci_connectivity/scratch/nodes.csv",header=FALSE)
+# 
+# 
+# strSQL="(select id_no1, season, count from (select id_no, id_no1, season::int, count (distinct (node_id)) 
+# from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_eco group by id_no, id_no1,season order by count desc) as foo where count<100 and count >10)"
+# 
+# ##then read by R into a spatialpolygonsdataframe (I have only managed this with wgs84 format datasets so far)
+# strSQL = "SELECT foo.node_id, foo.area, foo.id_no, foo.wdpa
+# FROM cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_eco  as foo inner join
+# (select distinct id_no from cci_2015.links_grid_pas_trees_40postcent_30agg_by_id_nos_filt2) as foo2
+# on foo.id_no=foo2.id_no;"
+# 
+# ##get data from  postgresql database
+# 
+# nodes<- dbSendQuery(con, strSQL)   ## Submits a sql statement
+# ##place data in dataframe
+# nodes<-fetch(nodes,n=-1)
+# 
+# str(nodes)
+# head(nodes)
+# #from pgis
+# names(nodes)<-c("gid","sitarea","sciname","remove")
+# #from csv
+# names(nodes)<-c("sciname","gid","sitarea","remove")
+# 
+# ##fixing error from postgis for notetypes option
+# x=nodes$remove
+# nodes$remove=replace(x, x==0, -1)
+# 
+# #write dataframe to multiple text files using d_ply and column to split dataframe
+# #d_ply seems similar to lapply but info says it doesn't save results - just carries out function - though I can't see difference
+# d_ply(nodes, "sciname", function(x)
+#   write.table(x[, c("gid", "sitarea","remove")], file = paste0("nodes_",x$sciname[1],".txt")
+#               , sep = "\t", col.names = FALSE, row.names = FALSE, quote=F))
+# 

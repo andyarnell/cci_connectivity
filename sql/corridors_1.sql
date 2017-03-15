@@ -31,6 +31,12 @@ select *, st_buffer(st_transform(the_geom,54032),0) as the_geom_azim_eq_dist
 from corridors_type_3_buff_agg_moll;
 
 
+drop index if exists corridors_type_3_buff_agg_geom_gist;
+CREATE INDEX corridors_type_3_buff_agg_geom_gist ON corridors_type_3_buff_agg USING GIST (the_geom_azim_eq_dist);
+CLUSTER corridors_type_3_buff_agg USING corridors_type_3_buff_agg_geom_gist;
+ANALYZE corridors_type_3_buff_agg;
+
+
 select foo1.*, st_area(st_transform(st_intersection(foo1.the_geom_azim_eq_dist,foo2.the_geom_azim_eq_dist),54009))/1000000 as the_geom_edit
 from
 (select * from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco limit 1000) as foo1,
@@ -43,4 +49,5 @@ from
 (select * from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco limit 10000) as foo1,
 corridors_type_3_buff_agg as foo2 
 where st_intersects(foo1.the_geom_azim_eq_dist,foo2.the_geom_azim_eq_dist);
+
 

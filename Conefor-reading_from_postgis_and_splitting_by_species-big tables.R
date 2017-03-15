@@ -26,22 +26,39 @@ dbListTables(con)
 
 
 ##set working directory for outputs to be sent to
-setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/old")
+setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/t1")
 
 getwd()
 
 
 
 #################################################################
+#selecting species with some nodes in the area
 
-strSQL="(select id_no1, season, count from (select id_no, id_no1, season::int, count (distinct (node_id)) 
-from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_eco group by id_no, id_no1,season order by count desc) as foo where count>1)" 
+strSQL="(select distinct foo1.id_no1, foo1.season, foo1.count from 
+(
+select id_no, id_no1, season::int, count (distinct (node_id)) 
+from  cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 
+group by id_no, id_no1,season order by count desc
+) as foo1,
+(select distinct id_no1, season from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where impacted =1) as foo2
+where 
+foo1.count>1
+and foo1.id_no1=foo2.id_no1 
+and foo1.season = foo2.season::int
+order by count desc
+)" 
+
 spList<- dbSendQuery(con, strSQL)   ## Submits a sql statement
 ##place data in dataframe
 spList<-fetch(spList,n=-1)
 
-head(spList)
+View(spList)
 str(spList)
+#spList<-list(spList$id_no1)
+
+
+
 #spList<-list(spList$id_no1)
 
 ####################
@@ -50,13 +67,7 @@ str(spList)
 
 
 #########################################
-# 
-# for (i in 1:length(spList$id_no1)){
-#   id_no1<-spList$id_no1[i]
-#   season<-spList$season[i]
-#   print (id_no1)}
-#   print (spList$count[i])
-
+ 
 
 sp_status<-read.csv("C:/Data/cci_connectivity/raw/species/spp_name_id_category_joined.csv")
 
@@ -65,41 +76,43 @@ str(sp_status)
 #join to status from IUCN Red List
 spList<-merge(spList,sp_status,by.x="id_no1",by.y="id_no",all.x=TRUE)
 head(spList)
+str(spList)
 
+spList <- spList[order(-spList$count),] 
 
 ##################################################################
 ###subsetting if needed
 
-#select those that are threatened (i.e. not Least Concern)
-spList.sub<-subset(spList,spList$category!="LC")
-spList.sub.excl.status<-subset(spList,spList$category=="LC")
-#copy list of threatened speceis excluded by status to csv
-write.csv(spList.sub.excl.status,"excluded_species_least_concern.csv",row.names=F)
-
-head(spList.sub)
-
-#select from those under 10000 nodes
-#node threshold 
-node_threshold<-8000
-spList.sub.incl<-subset(spList.sub,spList.sub$count<=node_threshold)
-spList.sub.excl.nodes<-subset(spList.sub,spList.sub$count>node_threshold)
-#copy list of threatened speceis excluded by node threshold to csv
-write.csv(spList.sub.excl.nodes,"excluded_species_threshold.csv",row.names=F)
-
-#copy list of included species
-write.csv(spList.sub.incl,paste0("included_species_crenvunt_",node_threshold,".csv"),row.names=F)
-
-spList.sub<-droplevels(spList.sub)
-str(spList.sub)
-
-unique(spList.sub$id_no1)
-
-spList<-spList.sub
+# #select those that are threatened (i.e. not Least Concern)
+# spList.sub<-subset(spList,spList$category!="LC")
+# spList.sub.excl.status<-subset(spList,spList$category=="LC")
+# #copy list of threatened speceis excluded by status to csv
+# write.csv(spList.sub.excl.status,"excluded_species_least_concern.csv",row.names=F)
+# 
+# head(spList.sub)
+# 
+# #select from those under 10000 nodes
+# #node threshold 
+# node_threshold<-8000
+# spList.sub.incl<-subset(spList.sub,spList.sub$count<=node_threshold)
+# spList.sub.excl.nodes<-subset(spList.sub,spList.sub$count>node_threshold)
+# #copy list of threatened speceis excluded by node threshold to csv
+# write.csv(spList.sub.excl.nodes,"excluded_species_threshold.csv",row.names=F)
+# 
+# #copy list of included species
+# write.csv(spList.sub.incl,paste0("included_species_crenvunt_",node_threshold,".csv"),row.names=F)
+# 
+# spList.sub<-droplevels(spList.sub)
+# str(spList.sub)
+# 
+# unique(spList.sub$id_no1)
+# 
+# spList<-spList.sub
 
 
 ###########################################
 
-for (i in 1:213){#length(spList$id_no)){
+for (i in 240:241){#length(spList$id_no)){
   id_no1<-spList$id_no1[i]
   season<-spList$season[i]
   print (id_no1)
@@ -118,15 +131,21 @@ for (i in 1:213){#length(spList$id_no)){
   a.grid_id as from_grid_id,
   b.grid_id as to_grid_id,
   a.id_no1,
-  a.season,
-  st_distance(a.the_geom,b.the_geom) AS distance
+  a.season
+  ,st_distance(a.the_geom,b.the_geom) AS distance,
+  case when (st_intersects((ST_ShortestLine(a.the_geom,b.the_geom)), e.the_geom))
+  then st_distance(a.the_geom,b.the_geom)- ST_Length(ST_Intersection((ST_ShortestLine(a.the_geom,b.the_geom)), e.the_geom))
+  else 0
+  end   as dist_over_barrier
   from
-  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco where id_no1 =",id_no1," and season::int = ",season,")
+  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season,")
   as a,
-  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco where id_no1 =",id_no1," and season::int = ",season,")  
+  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season,")  
    as  b,
   (select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*8*1000) as cutoff_dist from dispersal_data where taxon_id =", id_no1,") 
   as c
+  , 
+  (select the_geom_azim_eq_dist as the_geom, NAME, status from corridors_type_3_buff_agg) as e
   where
   a.node_id > b.node_id
   and st_distance(a.the_geom,b.the_geom)<c.cutoff_dist
@@ -138,13 +157,16 @@ for (i in 1:213){#length(spList$id_no)){
   distances<-fetch(distances,n=-1)
   names(distances)
   head(distances)
+  
   #from pgis
-  x<-distances
+  x<-unique(distances)
   if (length(x[1,])==0){
     print("error")
   }  else {
     write.table(x[, c("from_node_id", "to_node_id", "distance")], file = paste0("distances_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
+    write.table(x[, c("from_node_id", "to_node_id", "distance","dist_over_barrier")], file = paste0("distances_adj_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
   }
+  
  if (length(x[1,])==0){
    print("error")
   }  else {
@@ -157,7 +179,7 @@ for (i in 1:213){#length(spList$id_no)){
     
     print (dbListResults(con)[[1]])
     strSQL=paste0("SET search_path=cci_2015,public,topology; 
-    (select node_id, area, wdpa from int_grid_pas_trees_40postcent_30agg_by_nodeids_eco where id_no1 =",id_no1," and season::int = ",season,")" )
+    (select node_id, area, wdpa from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season,")" )
     strSQL=gsub("\n", "", strSQL)
     #print(strSQL)
     nodes<- dbSendQuery(con, strSQL)   ## Submits a sql statement
@@ -166,6 +188,7 @@ for (i in 1:213){#length(spList$id_no)){
     #x=nodes$wdpa
     #nodes$wdpa=replace(nodes$wdpa, nodes$wdpa==0, -1)
     write.table(nodes[, c("node_id", "area", "wdpa")], file = paste0("nodes_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
+    
     
   } 
 }

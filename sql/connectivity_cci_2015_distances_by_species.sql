@@ -58,7 +58,7 @@ from 'C:\Data\cci_connectivity\scratch\dispersal\bird_dispersal_edit.csv'  delim
 
 drop table if exists grid_pas_trees_40postcent_30agg_diss_ovr1ha_t1_clean;
 create table grid_pas_trees_40postcent_30agg_diss_ovr1ha_t1_clean as
-(select st_makevalid(st_buffer(the_geom,0)) as the_geom, nodiddiss2::int as node_id, fid_grid50 as grid_id, area_geo as area, fid_pas_in as wdpa, nodiddiss2 - nodeiddiss as impacted
+(select st_makevalid(st_buffer(the_geom,0)) as the_geom, nodiddiss2::int as node_id, fid_grid50 as grid_id, area_geo as area, fid_pas_in as wdpa, nodiddiss2 - nodeiddiss as impacted, fid_corrid::int as fid_corrid
 from grid_pas_trees_40postcent_30agg_diss_ovr1ha_t1 offset 0);
 
 
@@ -83,7 +83,8 @@ foo1.grid_id,
 foo1.the_geom,
 min(foo1.area) as area,
 min(case when (wdpa>-1) then 1 else -1 end) as wdpa,
-min(case when (impacted<>0) then 1 else -1 end) as impacted
+min(case when (impacted<>0) then 1 else -1 end) as impacted,
+min(foo1.fid_corrid) as fid_corrid
 from 
 grid_pas_trees_40postcent_30agg_diss_ovr1ha_t1_clean
 as foo1,
@@ -92,7 +93,7 @@ as foo1,
 (
 select foo1.*, 
 left((REPLACE(foo1.id_no, 'sp_', '')), length((REPLACE(foo1.id_no, 'sp_', ''))) - 2)::bigint as id_no1,
-right(foo1.id_no,1) as season
+right(foo1.id_no,1)::int as season
 from 
 sp_merged_all_union as foo1,
 sp_category  as foo2
@@ -127,6 +128,7 @@ drop index if exists int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_index;
 create index int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_index_id_no1 on int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 (id_no1);
 create index int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_index_season on int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 (season);
 create index int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_index_node_id on int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 (node_id);
+create index int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_index_fid_corrid on int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 (fid_corrid);
 
 
 drop index if exists  int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_the_geom_azim_eq_dist_gist;

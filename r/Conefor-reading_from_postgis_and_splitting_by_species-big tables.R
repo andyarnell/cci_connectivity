@@ -25,20 +25,23 @@ con <- dbConnect(drv, host='localhost', port='5432', dbname='biodiv_processing',
 dbListTables(con) #look at tables in database
 
 #STEP 2: Setting workspace####
+#choose appropriate if time period t0 or time period t1
+setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/t0") ##set working directory for outputs to be sent to
 setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/t1") ##set working directory for outputs to be sent to
+
 getwd()#view directory
 
-#STEP 3a: species info####
+#STEP 3: species info####
 #getting anciliary data on species (optional) 
 sp_status<-read.csv("C:/Data/cci_connectivity/raw/species/spp_name_id_category_joined.csv") #getting IUCN Red List category based on metadata for species
 str(sp_status)#check it worked
 
-#STEP 3b: selecting species to run with optional filtering if nodes are impacted by development#######
+#STEP 4a: getting list of species to run - includes optional filtering to see if nodes are impacted by development  #######
 
-select all species with nodes touching the area of impact (using the "where impacted = 1" clause)
-#Not that links could be impacted too if overlap development so may want to run all by using /* and */ either side of the "where impacted = 1" clause 
+#this optional filtering selects all species with nodes touching the area affected (using the "where impacted = 1" clause)
+#Note that links could be impacted too if overlap development so may want to run all by using /* and */ either side of the "where impacted = 1" clause 
 #Note: can choose specific runs for different corridors by choosing the id number from the development (e.g. fid_corrid number) - for these see development file
-strSQL.no_touch_="(
+strSQL="(
 select distinct foo1.id_no1, foo1.season, foo1.count from 
   (select id_no, id_no1, season::int, count (distinct (node_id)) 
   from  cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 group by id_no, id_no1,season order by count desc) 
@@ -53,48 +56,62 @@ and foo1.season = foo2.season::int
 order by count desc
 )" 
 
-spList.no_touch<- dbSendQuery(con, strSQL.no_touch)   ## Submits a sql statement
+spList<- dbSendQuery(con, strSQL)   ## Submits a sql statement
 
-spList.no_touch<-fetch(spList.no_touch,n=-1) ##place data in dataframe
+spList<-fetch(spList,n=-1) ##place data in dataframe
 
-#head(spList)
-str(spList.no_touch)#view results
+head(spList)#view results
+str(spList)
 
-#STEP 3c: subsetting further if needed ####
 
-# #select those that are threatened (i.e. not Least Concern)
-# spList.sub<-subset(spList,spList$category!="LC")
-# spList.sub.excl.status<-subset(spList,spList$category=="LC")
-# #copy list of threatened speceis excluded by status to csv
-# write.csv(spList.sub.excl.status,"excluded_species_least_concern.csv",row.names=F)
-# 
-# head(spList.sub)
-# 
-# #select from those under 10000 nodes
-# #node threshold 
-# node_threshold<-8000
-# spList.sub.incl<-subset(spList.sub,spList.sub$count<=node_threshold)
-# spList.sub.excl.nodes<-subset(spList.sub,spList.sub$count>node_threshold)
-# #copy list of threatened speceis excluded by node threshold to csv
-# write.csv(spList.sub.excl.nodes,"excluded_species_threshold.csv",row.names=F)
-# 
-# #copy list of included species
-# write.csv(spList.sub.incl,paste0("included_species_crenvunt_",node_threshold,".csv"),row.names=F)
-# 
-# spList.sub<-droplevels(spList.sub)
-# str(spList.sub)
-# 
-# unique(spList.sub$id_no1)
-# 
-# spList<-spList.sub
+# (optional) STEP 4b : subsetting further if needed ####
 
-#STEP 3d: listing species not impacted in t1 and make a list of them ####
+#add in status
+spList<-merge(spList,sp_status,by.x="id_no1",by.y="id_no",all.x=TRUE)
+head(spList)
+str(spList)
+
+spList <- spList[order(-spList$count),] 
+str(spList)
+
+#select those that are threatened (i.e. not Least Concern)
+spList.sub<-subset(spList,spList$category!="LC")
+
+#save least concern species list (for metadata purposes)
+spList.sub.excl.status<-subset(spList,spList$category=="LC")
+head(spList.sub.excl.status)
+#copy list of threatened speceis excluded by status to csv
+write.csv(spList.sub.excl.status,"excluded_species_least_concern.csv",row.names=F)
+
+
+#select from those under 10000 nodes
+#node threshold 
+node_threshold<-50
+spList.sub.incl<-subset(spList.sub,spList.sub$count<=node_threshold)
+spList.sub.excl.nodes<-subset(spList.sub,spList.sub$count>node_threshold)
+
+#copy list of threatened species excluded by node threshold to csv (for metadata purposes)
+write.csv(spList.sub.excl.nodes,"excluded_species_threshold.csv",row.names=F)
+
+
+#copy list of included species
+write.csv(spList.sub.incl,paste0("included_species_crenvunt_",node_threshold,".csv"),row.names=F)
+
+spList.sub.incl<-droplevels(spList.sub.incl)
+str(spList.sub.incl)
+
+unique(spList.sub.incl$id_no1)
+
+#run following line only if want to use subset for main analysis
+spList<-spList.sub.incl
+
+# (optional) STEP 4c : listing species not impacted in t1 and make a list of them (for metadata) ####
 #create a table of which species aren't impacted by development and write to a csv (N.B. for this analysis each id_no1 and season combination is treated as if were a different species, thus allowing distinction betweeen connectivity in breeding and non-breeding areas)
 #the csv output could be used as a basis for selecting output files from t0 that don't need to be rerun in conefor as they would be the same. Also useful for reporting metadata)
 
 #create a string to send to query postgresql database
 #this one 
-strSQL="(
+strSQL.no_touch="(
 select distinct foo1.id_no1, foo1.season, foo1.count 
 from 
 (
@@ -124,37 +141,42 @@ and foo1.season = foo2.season::int
 order by count desc
 )"
 
-spList<- dbSendQuery(con, strSQL)   ## Submits a sql statement
+spList.no_touch<- dbSendQuery(con, strSQL.no_touch)   ## Submits a sql statement
 
-spList<-fetch(spList,n=-1)##place data in dataframe
+spList.no_touch<-fetch(spList.no_touch,n=-1)##place data in dataframe
 
-View(spList)
-str(spList)
+View(spList.no_touch)
+str(spList.no_touch)
 
 #join to status from IUCN Red List
-spList<-merge(spList,sp_status,by.x="id_no1",by.y="id_no",all.x=TRUE)
-head(spList)
-str(spList)
+spList.no_touch<-merge(spList.no_touch,sp_status,by.x="id_no1",by.y="id_no",all.x=TRUE)
+head(spList.no_touch)
+str(spList.no_touch)
 
-spList <- spList[order(-spList$count),] 
-str(spList)
+spList.no_touch <- spList.no_touch[order(-spList.no_touch$count),] 
+str(spList.no_touch)
 
 write.csv(spList, "t0_not_impacted.csv",row.names=F)
 
 ###########################################
-#STEP 4: loop through species in the list (the spList object) and for each one
+#STEP 5: loop through species in the list (the spList object) and for each one
 
 #set development id 
-#code for which nodes to include. 
-#Setting dev_id=-1 means no nodes (or parts of nodes) are removed from development - this should give t0 (as long as the alternative distance files aren't used elsewhere in coneeofor)
-#Setting dev_id=5 (for example) would mean only a single developement (with fid_corrid=5) will be removed. 
-#setting dev>0 would mean all nodes (or parts of nodes) are removed from development - this should give t1 where all corridors are built at some time.
-#N.B. should give t0 values (as long as the alternative distance files aren't used)
+#code for which nodes to include using dev_id. 
+#KEY:
+#t0: dev_id=-1 would mean all nodes (or parts of nodes) are removed from development - a scenario where all corridors are built at some time.
+#t1: dev_id<>0 means no nodes (or parts of nodes) are removed from development (don't use the alternative distance files)
+
+#(optional)#t1 s1 -if one specific corridor is to be removed add corridor id to fid+corrid and set "dev_id<>fid_corrid"
+#fid_corrid="" #this would be a scenario (s1) where only a single developement (i.e., with fid_corrid=5) will be removed and adj distances calculated just for this section 
+#to add to corridor /*where fid_corrid=",fid_corrid,"*/
+
+#set dev_id based on above key
 dev_id=-1
 
-start_num=1 # normally start at 1 but can start later. Later in list has less nodes to run.
+start_num=101 # normally start at 1 but can start later. Later in list has less nodes to run.
 
-for (i in 101:length(spList$id_no)){
+for (i in start_num:length(spList$id_no)){
   gc()#garbage collection in casememory fills up
   id_no1<-spList$id_no1[i]
   season<-spList$season[i]
@@ -213,7 +235,7 @@ for (i in 101:length(spList$id_no)){
   #clause so if only one nodes then no distances calculations are attampeted.
  if (length(x[1,])==0){
    print(paste0("error - no nodes to write outside of max distance threshold for species id_no:","id_no1","and season",season)
-  }  else { # creat enode file from distances file
+  }  else { # create node file from distances file
     
     print (dbListResults(con)[[1]])
     strSQL=paste0("SET search_path=cci_2015,public,topology; 

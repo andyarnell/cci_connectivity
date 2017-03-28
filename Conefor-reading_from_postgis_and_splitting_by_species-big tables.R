@@ -11,111 +11,41 @@ library(rgdal)
 library(plyr)
 library(RPostgreSQL)
 library(anchors)
+
+###cleaning memory
 rm(list=ls()) #will remove ALL objects
 ls()
 
+
+#STEP 1: linking to postgresql/postgis database####
+
 ##load driver
 drv <- dbDriver("PostgreSQL")
-##assign connection info
-con <- dbConnect(drv, host='localhost', port='5432', dbname='biodiv_processing',
-                 user='postgres', password='Seltaeb1')
+con <- dbConnect(drv, host='localhost', port='5432', dbname='biodiv_processing', user='postgres', password='Seltaeb1') ##assign connection info
+dbListTables(con) #look at tables in database
 
-##look at tables in database
-dbListTables(con)
+#STEP 2: Setting workspace####
+setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/t1") ##set working directory for outputs to be sent to
+getwd()#view directory
 
+#STEP 3a: species info####
+#getting anciliary data on species (optional) 
+sp_status<-read.csv("C:/Data/cci_connectivity/raw/species/spp_name_id_category_joined.csv") #getting IUCN Red List category based on metadata for species
+str(sp_status)#check it worked
 
+#STEP 3b: selecting species to run with optional filtering if nodes are impacted by development#######
 
-##set working directory for outputs to be sent to
-setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/t0")
-
-getwd()
-
-
-
-#################################################################
-#status based on metadata for species
-sp_status<-read.csv("C:/Data/cci_connectivity/raw/species/spp_name_id_category_joined.csv")
-
-str(sp_status)
-
-
-###################
-#find table of which species (or at least id_no1 and season combinations) aren't impacted by development and write to a csv 
-##(this list is useful for metadata or basis for selecting output files from t0 that don't need to be rerun)
-
-#spList<-list(spList$id_no1)
-strSQL="(
-  select distinct foo1.id_no1, foo1.season, foo1.count from 
-  (
-    select id_no, id_no1, season::int, count (distinct (node_id)
-    ) 
-    from  
-    cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 
-    group by id_no, id_no1,season order by count desc
-  ) 
-  as foo1,
-  (
-    (select distinct foo1.id_no1, foo1.season from 
-     (select distinct id_no1, season from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1) as foo1
-     left join 
-     (select distinct id_no1, season from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 
-      where impacted = 1
-      ) as foo2
-     on foo1.id_no1 = foo2.id_no1
-     and foo1.season = foo2.season 
-     where foo2.id_no1 is null)
-  ) 
-  as foo2
-  where 
-  foo1.count>1
-  and foo1.id_no1=foo2.id_no1 
-  and foo1.season = foo2.season::int
-  order by count desc
-)"
-
-
-spList<- dbSendQuery(con, strSQL)   ## Submits a sql statement
-##place data in dataframe
-spList<-fetch(spList,n=-1)
-
-View(spList)
-str(spList)
-
-#join to status from IUCN Red List
-spList<-merge(spList,sp_status,by.x="id_no1",by.y="id_no",all.x=TRUE)
-head(spList)
-str(spList)
-
-spList <- spList[order(-spList$count),] 
-str(spList)
-
-write.csv(spList, "t0_not_impacted.csv",row.names=F)
-
-
-########################
-
-
-#selecting species with some nodes in the area (using the where impacted clause)
-# using =1 is for species that have nodes impacted by development (either touching or overlapping)
-# use /* and */ either side of this where clause to choose all species - there is no need to rerun these as they will be the same as t0, so if needed copy the outputs from t0 run.
-#can choose specific runs for different corridors by choosing the id number from the development (e.g. fid_corrid number) - for these see development file
-#or make use >0 to get those that don't intersect the corridor
-strSQL="(
+select all species with nodes touching the area of impact (using the "where impacted = 1" clause)
+#Not that links could be impacted too if overlap development so may want to run all by using /* and */ either side of the "where impacted = 1" clause 
+#Note: can choose specific runs for different corridors by choosing the id number from the development (e.g. fid_corrid number) - for these see development file
+strSQL.no_touch_="(
 select distinct foo1.id_no1, foo1.season, foo1.count from 
-(
-select id_no, id_no1, season::int, count (distinct (node_id)
-) 
-from  
-cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 
-group by id_no, id_no1,season order by count desc
-) 
-as foo1,
-(
-select distinct id_no1, season from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 
-/*where impacted =-1 and not impacted = 1*/
-/* and fid_corrid=6*/
-) 
-as foo2
+  (select id_no, id_no1, season::int, count (distinct (node_id)) 
+  from  cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 group by id_no, id_no1,season order by count desc) 
+  as foo1,
+  (select distinct id_no1, season from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 
+  /*where impacted =-1 and not impacted = 1*/ /* and fid_corrid=6*/) 
+  as foo2
 where 
 foo1.count>1
 and foo1.id_no1=foo2.id_no1 
@@ -123,26 +53,14 @@ and foo1.season = foo2.season::int
 order by count desc
 )" 
 
-spList<- dbSendQuery(con, strSQL)   ## Submits a sql statement
-##place data in dataframe
-spList<-fetch(spList,n=-1)
+spList.no_touch<- dbSendQuery(con, strSQL.no_touch)   ## Submits a sql statement
 
-View(spList)
-str(spList)
+spList.no_touch<-fetch(spList.no_touch,n=-1) ##place data in dataframe
 
+#head(spList)
+str(spList.no_touch)#view results
 
-
-####################
-
-
-#########################################
- 
-
-
-
-
-##################################################################
-###subsetting if needed
+#STEP 3c: subsetting further if needed ####
 
 # #select those that are threatened (i.e. not Least Concern)
 # spList.sub<-subset(spList,spList$category!="LC")
@@ -170,11 +88,74 @@ str(spList)
 # 
 # spList<-spList.sub
 
+#STEP 3d: listing species not impacted in t1 and make a list of them ####
+#create a table of which species aren't impacted by development and write to a csv (N.B. for this analysis each id_no1 and season combination is treated as if were a different species, thus allowing distinction betweeen connectivity in breeding and non-breeding areas)
+#the csv output could be used as a basis for selecting output files from t0 that don't need to be rerun in conefor as they would be the same. Also useful for reporting metadata)
+
+#create a string to send to query postgresql database
+#this one 
+strSQL="(
+select distinct foo1.id_no1, foo1.season, foo1.count 
+from 
+(
+select id_no, id_no1, season::int, count (distinct (node_id)) 
+from  
+cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 
+group by id_no, id_no1,season order by count desc
+) 
+as foo1,
+(
+(select distinct foo1.id_no1, foo1.season 
+from 
+(select distinct id_no1, season from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1) 
+as foo1
+left join 
+(select distinct id_no1, season from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where impacted = 1) 
+as foo2
+on foo1.id_no1 = foo2.id_no1
+and foo1.season = foo2.season 
+where foo2.id_no1 is null)
+) 
+as foo2
+where 
+foo1.count>1
+and foo1.id_no1=foo2.id_no1 
+and foo1.season = foo2.season::int
+order by count desc
+)"
+
+spList<- dbSendQuery(con, strSQL)   ## Submits a sql statement
+
+spList<-fetch(spList,n=-1)##place data in dataframe
+
+View(spList)
+str(spList)
+
+#join to status from IUCN Red List
+spList<-merge(spList,sp_status,by.x="id_no1",by.y="id_no",all.x=TRUE)
+head(spList)
+str(spList)
+
+spList <- spList[order(-spList$count),] 
+str(spList)
+
+write.csv(spList, "t0_not_impacted.csv",row.names=F)
 
 ###########################################
+#STEP 4: loop through species in the list (the spList object) and for each one
+
+#set development id 
+#code for which nodes to include. 
+#Setting dev_id=-1 means no nodes (or parts of nodes) are removed from development - this should give t0 (as long as the alternative distance files aren't used elsewhere in coneeofor)
+#Setting dev_id=5 (for example) would mean only a single developement (with fid_corrid=5) will be removed. 
+#setting dev>0 would mean all nodes (or parts of nodes) are removed from development - this should give t1 where all corridors are built at some time.
+#N.B. should give t0 values (as long as the alternative distance files aren't used)
+dev_id=-1
+
+start_num=1 # normally start at 1 but can start later. Later in list has less nodes to run.
 
 for (i in 101:length(spList$id_no)){
-  gc()
+  gc()#garbage collection in casememory fills up
   id_no1<-spList$id_no1[i]
   season<-spList$season[i]
   print (id_no1)
@@ -200,14 +181,15 @@ for (i in 101:length(spList$id_no)){
   else 0
   end   as dist_over_barrier
   from
-  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season," and fid_corrid=-1)
+  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season," and fid_corrid=",dev_id,")
   as a,
-  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season,"  and fid_corrid=-1)  
+  (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season," and fid_corrid=",dev_id,")  
    as  b,
   (select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*8*1000) as cutoff_dist from dispersal_data where taxon_id =", id_no1,") 
   as c
   , 
-  (select the_geom_azim_eq_dist as the_geom, NAME, status from corridors_type_3_buff_agg) as e
+  (select the_geom_azim_eq_dist as the_geom, NAME, status from corridors_type_3_buff_agg) 
+  as e
   where
   a.node_id > b.node_id
   and st_distance(a.the_geom,b.the_geom)<c.cutoff_dist
@@ -228,10 +210,10 @@ for (i in 101:length(spList$id_no)){
     write.table(x[, c("from_node_id", "to_node_id", "distance")], file = paste0("distances_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
     write.table(x[, c("from_node_id", "to_node_id", "distance","dist_over_barrier")], file = paste0("distances_adj_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
   }
-  
+  #clause so if only one nodes then no distances calculations are attampeted.
  if (length(x[1,])==0){
-   print("error - no nodes to write outside of max distance threshold")
-  }  else {
+   print(paste0("error - no nodes to write outside of max distance threshold for species id_no:","id_no1","and season",season)
+  }  else { # creat enode file from distances file
     
     print (dbListResults(con)[[1]])
     strSQL=paste0("SET search_path=cci_2015,public,topology; 
@@ -251,65 +233,3 @@ for (i in 101:length(spList$id_no)){
   gc()
 }
 
-
-# 
-# postgresqlTransactionStatement <- function(con, statement) {
-#   ## are there resultSets pending on con?
-#   if(length(dbListResults(con)) > 0){
-#     res <- dbListResults(con)[[1]]
-#     if(!dbHasCompleted(res)){
-#       stop("connection with pending rows, close resultSet before continuing")
-#     }
-#     dbClearResult(res)
-#   }
-#   
-#   rc <- try(dbGetQuery(con, statement))
-#   !inherits(rc, ErrorClass)
-# }
-# 
-# postgresqlTransactionStatement(con,strSQL)
-
-
-#write dataframe to multiple text files using d_ply and column to split dataframe
-
-# 
-# #d_ply seems similar to lappy but info says it doesn't save results - just carries out function - though I can't see difference
-# d_ply(distances, "sciname", function(x)
-#   write.table(x[, c("from_node_id", "to_node_id", "distance")], file = paste0("distances_",x$sciname[1],".txt")
-#               , sep = "\t", col.names = FALSE, row.names = FALSE, quote=F))
-# 
-# nodes<-read.csv("C:/Data/cci_connectivity/scratch/nodes.csv",header=FALSE)
-# 
-# 
-# strSQL="(select id_no1, season, count from (select id_no, id_no1, season::int, count (distinct (node_id)) 
-# from cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_eco group by id_no, id_no1,season order by count desc) as foo where count<100 and count >10)"
-# 
-# ##then read by R into a spatialpolygonsdataframe (I have only managed this with wgs84 format datasets so far)
-# strSQL = "SELECT foo.node_id, foo.area, foo.id_no, foo.wdpa
-# FROM cci_2015.int_grid_pas_trees_40postcent_30agg_by_nodeids_eco  as foo inner join
-# (select distinct id_no from cci_2015.links_grid_pas_trees_40postcent_30agg_by_id_nos_filt2) as foo2
-# on foo.id_no=foo2.id_no;"
-# 
-# ##get data from  postgresql database
-# 
-# nodes<- dbSendQuery(con, strSQL)   ## Submits a sql statement
-# ##place data in dataframe
-# nodes<-fetch(nodes,n=-1)
-# 
-# str(nodes)
-# head(nodes)
-# #from pgis
-# names(nodes)<-c("gid","sitarea","sciname","remove")
-# #from csv
-# names(nodes)<-c("sciname","gid","sitarea","remove")
-# 
-# ##fixing error from postgis for notetypes option
-# x=nodes$remove
-# nodes$remove=replace(x, x==0, -1)
-# 
-# #write dataframe to multiple text files using d_ply and column to split dataframe
-# #d_ply seems similar to lapply but info says it doesn't save results - just carries out function - though I can't see difference
-# d_ply(nodes, "sciname", function(x)
-#   write.table(x[, c("gid", "sitarea","remove")], file = paste0("nodes_",x$sciname[1],".txt")
-#               , sep = "\t", col.names = FALSE, row.names = FALSE, quote=F))
-# 

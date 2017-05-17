@@ -1,9 +1,9 @@
+
 #remove ~ from below if not installed 
-install.packages("RPostgreSQL")
-install.packages("rgeos")
-install.packages("plyr")
-install.packages("anchors")
-install.packages("rgdal")
+#install.packages("RPostgreSQL")
+#install.packages("rgeos")
+#install.packages("plyr")
+#install.packages("anchors")
 #loading packages
 library(sp)
 library(rgeos)
@@ -26,20 +26,14 @@ dbListTables(con) #look at tables in database
 
 #STEP 2: Setting workspace####
 #choose appropriate if time period t0 or time period t1
-#setwd("C:/Thesis_analysis/Development_corridors/distances/t0") ##set working directory for outputs to be sent to
-#setwd("C:/Thesis_analysis/Development_corridors/distances/t1") ##set working directory for outputs to be sent to
 setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/t0") ##set working directory for outputs to be sent to
-setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/t1")##set working directory for outputs to be sent to
-
-
+setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/t1") ##set working directory for outputs to be sent to
 
 getwd()#view directory
 
 #STEP 3: species info####
 #getting anciliary data on species (optional) 
-#sp_status<-read.csv("C:/Thesis_analysis/Development_corridors/inputs/species_metadata/spp_name_id_category_joined.csv") #getting IUCN Red List category based on metadata for species
 sp_status<-read.csv("C:/Data/cci_connectivity/raw/species/spp_name_id_category_joined.csv") #getting IUCN Red List category based on metadata for species
-
 str(sp_status)#check it worked
 
 #STEP 4a: getting list of species to run - includes optional filtering to see if nodes are impacted by development  #######
@@ -170,25 +164,20 @@ write.csv(spList, "t0_not_impacted.csv",row.names=F)
 #set development id 
 #code for which nodes to include using dev_id. 
 #KEY:
-#t0: dev_id>-2 would mean all nodes (or parts of nodes) are removed from development - a scenario where all corridors are built at some time.
-#t1: dev_id=-1 means no nodes (or parts of nodes) are removed from development (don't use the alternative distance files)
+#t0: dev_id=-1 would mean all nodes (or parts of nodes) are removed from development - a scenario where all corridors are built at some time.
+#t1: dev_id<>0 means no nodes (or parts of nodes) are removed from development (don't use the alternative distance files)
 
 #(optional)#t1 s1 -if one specific corridor is to be removed add corridor id to fid+corrid and set "dev_id<>fid_dev"
 #fid_dev="" #this would be a scenario (s1) where only a single developement (i.e., with fid_dev=5) will be removed and adj distances calculated just for this section 
 #to add to corridor /*where fid_dev=",fid_dev,"*/
 
 #set dev_id based on above key
-#t0 
-signage=">"
-dev_id=-2
-
-#t1
-signage="="
 dev_id=-1
 
-start_num=270# normally start at 1 but can start later. Later in list has less nodes to run.
-end_num=length(spList$id_no)
-for (i in start_num:end_num){
+dev_layer ="lossovr40pcent" #corridors_type_3_buff_agg
+start_num=230 # normally start at 1 but can start later. Later in list has less nodes to run.
+
+for (i in start_num:length(spList$id_no)){
   gc()#garbage collection in casememory fills up
   id_no1<-spList$id_no1[i]
   season<-spList$season[i]
@@ -197,7 +186,7 @@ for (i in start_num:end_num){
   print(spList$count[i])
   print (i)
   strSQL=paste0(
-    "SET search_path=cci_2017,cci_2015,public,topology;
+    "SET search_path=cci_2017,cci_2015public,topology;
     select 
     a.area as from_area,
     b.area as to_area,
@@ -209,20 +198,20 @@ for (i in start_num:end_num){
     b.grid_id as to_grid_id,
     a.id_no1,
     a.season
-    ,st_distance(a.the_geom,b.the_geom) AS distance
-    ,case when (st_intersects((ST_ShortestLine(a.the_geom,b.the_geom)), e.the_geom))
+    ,st_distance(a.the_geom,b.the_geom) AS distance,
+    case when (st_intersects((ST_ShortestLine(a.the_geom,b.the_geom)), e.the_geom))
     then st_distance(a.the_geom,b.the_geom)- ST_Length(ST_Intersection((ST_ShortestLine(a.the_geom,b.the_geom)), e.the_geom))
     else 0
     end   as dist_over_barrier
     from
-    (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season," and fid_dev",signage,dev_id,")
+    (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season," and fid_dev=",dev_id,")
     as a,
-    (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season," and fid_dev",signage,dev_id,")  
+    (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season," and fid_dev=",dev_id,")  
     as  b,
     (select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*8*1000) as cutoff_dist from dispersal_data where taxon_id =", id_no1,") 
     as c
     , 
-    (select the_geom_azim_eq_dist as the_geom, NAME, status from corridors_type_3_buff_agg) 
+    (select the_geom_azim_eq_dist as the_geom, NAME, status from ",devel_layer,") 
     as e
     where
     a.node_id > b.node_id
@@ -241,18 +230,17 @@ for (i in start_num:end_num){
   if (length(x[1,])==0){
     print("error - no links to write as outside of max distance threshold")
   }  else {
-    write.table(x[, c("from_node_id", "to_node_id", "distance","from_grid_id", "to_grid_id")], file = paste0("distances_lut_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
     write.table(x[, c("from_node_id", "to_node_id", "distance")], file = paste0("distances_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
     write.table(x[, c("from_node_id", "to_node_id", "distance","dist_over_barrier")], file = paste0("distances_adj_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
   }
   #clause so if only one nodes then no distances calculations are attampeted.
   if (length(x[1,])==0){
-    print("error - no nodes to write outside of max distance threshold")
+    print(paste0("error - no nodes to write outside of max distance threshold for species id_no:","id_no1","and season",season)
   }  else { # create node file from distances file
     
     print (dbListResults(con)[[1]])
-    strSQL=paste0("SET search_path=cci_2017,public,topology; 
-    (select node_id, area, wdpa from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season,")" )
+    strSQL=paste0("SET search_path=cci_2017,cci_2015,public,topology; 
+                  (select node_id, area, wdpa from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season,")" )
     strSQL=gsub("\n", "", strSQL)
     #print(strSQL)
     nodes<- dbSendQuery(con, strSQL)   ## Submits a sql statement
@@ -267,4 +255,3 @@ for (i in start_num:end_num){
   } 
   gc()
 }
-

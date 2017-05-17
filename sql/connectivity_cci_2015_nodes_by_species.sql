@@ -8,7 +8,7 @@
 
 CREATE SCHEMA IF NOT EXISTS cci_2015; 
 
-SET search_path=cci_2015,public,topology;
+SET search_path=cci_2017,cci_2015,public,topology;
 
 
 --find/display current path for sql processing 
@@ -58,7 +58,7 @@ from 'C:\Data\cci_connectivity\scratch\dispersal\bird_dispersal_edit.csv'  delim
 
 drop table if exists grid_pas_trees_40postcent_30agg_diss_ovr1ha_t1_clean;
 create table grid_pas_trees_40postcent_30agg_diss_ovr1ha_t1_clean as
-(select st_makevalid(st_buffer(the_geom,0)) as the_geom, nodiddiss2::int as node_id, fid_grid50 as grid_id, area_geo as area, fid_pas_in as wdpa, nodiddiss2 - nodeiddiss as impacted, fid_corrid::int as fid_corrid
+(select st_makevalid(st_buffer(the_geom,0)) as the_geom, nodiddiss2::int as node_id, fid_grid50 as grid_id, area_geo as area, fid_pas_in as wdpa, nodiddiss2 - nodeiddiss as impacted, fid_dev::int as fid_dev
 from grid_pas_trees_40postcent_30agg_diss_ovr1ha_t1 offset 0);
 
 
@@ -84,7 +84,7 @@ foo1.the_geom,
 min(foo1.area) as area,
 min(case when (wdpa>-1) then 1 else -1 end) as wdpa,
 min(case when (impacted<>0) then 1 else -1 end) as impacted,
-min(foo1.fid_corrid) as fid_corrid
+min(foo1.fid_dev) as fid_dev
 from 
 grid_pas_trees_40postcent_30agg_diss_ovr1ha_t1_clean
 as foo1,
@@ -128,7 +128,7 @@ drop index if exists int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_index;
 create index int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_index_id_no1 on int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 (id_no1);
 create index int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_index_season on int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 (season);
 create index int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_index_node_id on int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 (node_id);
-create index int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_index_fid_corrid on int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 (fid_corrid);
+create index int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_index_fid_dev on int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 (fid_dev);
 
 
 drop index if exists  int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_the_geom_azim_eq_dist_gist;
@@ -141,6 +141,9 @@ CREATE INDEX int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_geom_gist ON int_
 CLUSTER int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 USING int_grid_pas_trees_40postcent_30agg_by_nodeids_t1_geom_gist;
 ANALYZE int_grid_pas_trees_40postcent_30agg_by_nodeids_t1;
 
+select * from 
+int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 
+limit 10
 
 --(select /*st_transform(the_geom,54032)*/ the_geom_azim_eq_dist as the_geom, id_no1, id_no, season as season1, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no = 'sp_22681765_1') 
 

@@ -32,7 +32,6 @@ setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/t0") ##set working d
 setwd("C:/Data/cci_connectivity/scratch/conefor_runs/inputs/t1")##set working directory for outputs to be sent to
 
 
-
 getwd()#view directory
 
 #STEP 3: species info####
@@ -186,8 +185,9 @@ dev_id=-2
 signage="="
 dev_id=-1
 
-start_num=270# normally start at 1 but can start later. Later in list has less nodes to run.
+start_num=20# normally start at 1 but can start later. Later in list has less nodes to run.
 end_num=length(spList$id_no)
+
 for (i in start_num:end_num){
   gc()#garbage collection in casememory fills up
   id_no1<-spList$id_no1[i]
@@ -210,20 +210,20 @@ for (i in start_num:end_num){
     a.id_no1,
     a.season
     ,st_distance(a.the_geom,b.the_geom) AS distance
-    ,case when (st_intersects((ST_ShortestLine(a.the_geom,b.the_geom)), e.the_geom))
+    /*,case when (st_intersects((ST_ShortestLine(a.the_geom,b.the_geom)), e.the_geom))
     then st_distance(a.the_geom,b.the_geom)- ST_Length(ST_Intersection((ST_ShortestLine(a.the_geom,b.the_geom)), e.the_geom))
     else 0
-    end   as dist_over_barrier
+    end   as dist_over_barrier*/
     from
     (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season," and fid_dev",signage,dev_id,")
     as a,
     (select area, wdpa, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_40postcent_30agg_by_nodeids_t1 where id_no1 =",id_no1," and season::int = ",season," and fid_dev",signage,dev_id,")  
     as  b,
     (select taxon_id as id_no, final_value_to_use as mean_dist, (final_value_to_use*8*1000) as cutoff_dist from dispersal_data where taxon_id =", id_no1,") 
-    as c
+    as c /*
     , 
     (select the_geom_azim_eq_dist as the_geom, NAME, status from corridors_type_3_buff_agg) 
-    as e
+    as e*/
     where
     a.node_id > b.node_id
     and st_distance(a.the_geom,b.the_geom)<c.cutoff_dist
@@ -243,7 +243,7 @@ for (i in start_num:end_num){
   }  else {
     write.table(x[, c("from_node_id", "to_node_id", "distance","from_grid_id", "to_grid_id")], file = paste0("distances_lut_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
     write.table(x[, c("from_node_id", "to_node_id", "distance")], file = paste0("distances_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
-    write.table(x[, c("from_node_id", "to_node_id", "distance","dist_over_barrier")], file = paste0("distances_adj_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
+    #write.table(x[, c("from_node_id", "to_node_id", "distance","dist_over_barrier")], file = paste0("distances_adj_",x$id_no1[1],"_",x$season[1],".txt"), sep = "\t", col.names = FALSE, row.names = FALSE, quote=F) 
   }
   #clause so if only one nodes then no distances calculations are attampeted.
   if (length(x[1,])==0){

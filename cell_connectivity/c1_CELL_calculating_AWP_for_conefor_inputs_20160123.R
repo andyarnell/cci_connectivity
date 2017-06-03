@@ -9,10 +9,13 @@ inP=0.36788
 
          
 setwd("C:/Data/cci_connectivity/scratch/conefor_runs/eca_runs/interCell/raw_dist")
+
+
 getwd()
-inCSV<-"AWP_agelastesniger.txt"#"AWP_method_check.csv"
+inCSV<-"AWP_agelastesniger.txt"#
+inCSV<-"AWP_method_check.csv"
 #inCSV<-"AWP_method_check.txt"
-spp<-read.table(inCSV,header=F)#read.table(inCSV)
+spp<-read.csv(inCSV,header=F)#read.table(inCSV)
 str(spp)
 head(spp)
 #spp2<-subset(spp,select=-V2)  

@@ -1,6 +1,6 @@
   
   ####################
-  ##Aim: split the distnaces and nodes files that are inputs to conefor
+  ##Aim: split the distances and nodes files that are inputs to conefor
   ###into smaller chunks based on grid cells
   ###these are split into two sets of files:
   ###1) for modelling the node dpc/varpc values within a grid cell 
@@ -43,14 +43,14 @@
   rm(list=ls())
   ls()
   
-  workingFolder_1<-"C:/Data/cci_connectivity/scratch/conefor_inputs/by_species"
-  workingFolder_2<-"C:/Data/cci_connectivity/scratch/conefor_inputs/nested/for_node_varpc"
-  workingFolder_3<-"C:/Data/cci_connectivity/scratch/conefor_inputs/nested/for_gridcell_eca"
+  workingFolder_1<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species"
+  workingFolder_2<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/nested/for_node_varpc"
+  workingFolder_3<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/nested/for_gridcell_eca"
   setwd(workingFolder_1)
   
   file_list <- list.files()
   
-  distancesprefix<-"distances_lut"
+  distancesprefix<-"distances"
   nodesprefix<-"nodes"
   
   #selecting files, based on string recognition to select outputs
@@ -61,7 +61,7 @@
   file_list
   
   x<-file_list
-  
+  x
   ###loop through distances file in the input folder (one per species)
   ###split by grid cell id 
   ###then for each grid cell select all distances with that grid cell id

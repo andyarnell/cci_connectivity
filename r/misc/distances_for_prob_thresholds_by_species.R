@@ -6,3 +6,8 @@ inP=0.36788
 newP=0.0001
 newDist<-((log(newP)))/-(-1*(log(inP)/dispConst))
 newDist
+
+#and in reverse
+p = exp(-(-1*(log(inP)/dispConst)) * newDist)
+
+

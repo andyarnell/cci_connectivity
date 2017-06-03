@@ -26,6 +26,8 @@ setwd(mainDir)
 node_id_field<-"nodiddiss4"
 gridcell_id_field<-"fid_fnet_2"
 
+#name of species table
+sp_merged_all<-"sp_merged_c1200_alt_clip"
 ##load driver
 drv <- dbDriver("PostgreSQL")
 con <- dbConnect(drv, host='localhost', port='5432', dbname='biodiv_processing', user='postgres', password='Seltaeb1') ##assign connection info
@@ -42,8 +44,8 @@ str(sp_status)#check it worked
 
 #STEP 3: 
 #eco<- read.dbf("C:/Data/cci_connectivity/scratch/ecoregions/freq_20km_kba_forestloss.dbf")
-#new_name<- sapply(eco$ECO_NAME, function(x) chartr( " ,-","___", x))
-#eco$NEW_ECO_NAME<- new_name 
+#new_name<- sapply(eco$eco_name, function(x) chartr( " ,-","___", x))
+#eco$NEW_eco_name<- new_name 
 #eco<- eco[, -1]
 
 strSQL<-paste0("SET search_path=cci_2017,cci_2015,public,topology;
@@ -62,8 +64,11 @@ Wafrica<- c("Eastern_Guinean_forests", "West_Sudanian_savanna", "Guinean_forest-
             "Central_African_mangroves", "Guinean_montane_forests", "Lake_Chad_flooded_savanna", 
             "Cross-Sanaga-Bioko_coastal_forests", "Cross-Niger_transition_forests", "Niger_Delta_swamp_forests") 
 1:length(Wafrica)
+Wafrica$Wafrica<-(sapply(Wafrica$Wafrica, function(x) chartr( " ,-","___", x)))
 Wafrica<-data.frame(Wafrica)
 a<-merge(eco,Wafrica,by.x="eco_name",by.y="Wafrica")
+#missing lake cahd but no forest i think so no join
+
 #a<- data.frame(eco_name= c("Ethiopian_montane_moorlands", "Eastern_Arc_forests"), eco_id= c(31008,30109))
 #a<-eco
 a
@@ -119,11 +124,12 @@ strSQL<- paste0(
 dbGetQuery(con, strSQL)
 
   
-  
+a
 
-for (y in 5:length(a$eco_id)){
+
+for (y in 1:4){#length(a$eco_id)){
   print (a$eco_id[y])
-
+}
   
   strSQL<- paste0(
     "--AIM: Make species EOO,ESH and range-rarity (national) maps based on a grid covering the area of interest (aoi) This has been used for landshift results for africa paper with kassel University
@@ -161,7 +167,7 @@ for (y in 5:length(a$eco_id)){
     left((REPLACE(foo1.id_no, 'sp_', '')), length((REPLACE(foo1.id_no, 'sp_', ''))) - 2)::bigint as id_no1,
     right(foo1.id_no,1)::int as season
     from 
-    (select spp_id as id_no, the_geom as the_geom from sp_merged_all) as foo1
+    (select spp_id as id_no, the_geom as the_geom from ",sp_merged_all,") as foo1
     )
     as foo2
     where
@@ -173,13 +179,19 @@ for (y in 5:length(a$eco_id)){
     foo2.id_no1,
     foo2.season,
     foo1.grid_id,
-    foo1.the_geom_azim_eq_dist,
+    foo1.the_geom_azim_eq_dist
     ;")
   
   
 dbGetQuery(con, strSQL)
-    
-    --this bit took a day for all species and with whole africa
+}    
+
+for (y in 1:4){#length(a$eco_id)){
+  print (a$eco_id[y])
+  
+  
+  strSQL<- paste0(
+    "--this bit took a day for all species and with whole africa
     
     drop index if exists int_grid_pas_trees_by_species_",a$eco_id[y],"_index;
     create index int_grid_pas_trees_by_species_",a$eco_id[y],"_index_id_no1 on int_grid_pas_trees_by_species_",a$eco_id[y]," (id_no1);
@@ -193,10 +205,10 @@ dbGetQuery(con, strSQL)
     CLUSTER int_grid_pas_trees_by_species_",a$eco_id[y]," USING int_grid_pas_trees_by_species_",a$eco_id[y],"_the_geom_azim_eq_dist_gist;
     ANALYZE int_grid_pas_trees_by_species_",a$eco_id[y],";
     
-    drop index if exists int_grid_pas_trees_by_species_",a$eco_id[y],"_geom_gist;
+    /*drop index if exists int_grid_pas_trees_by_species_",a$eco_id[y],"_geom_gist;
     CREATE INDEX int_grid_pas_trees_by_species_",a$eco_id[y],"_geom_gist ON int_grid_pas_trees_by_species_",a$eco_id[y]," USING GIST (the_geom);
     CLUSTER int_grid_pas_trees_by_species_",a$eco_id[y]," USING int_grid_pas_trees_by_species_",a$eco_id[y],"_geom_gist;
-    ANALYZE int_grid_pas_trees_by_species_",a$eco_id[y],";
+    ANALYZE int_grid_pas_trees_by_species_",a$eco_id[y],";*/
     
     ")
   
@@ -204,40 +216,42 @@ dbGetQuery(con, strSQL)
   dbGetQuery(con, strSQL)
 }
   
+for (y in 1:4){#length(a$eco_id)){
+  print (a$eco_id[y])
   
   #STEP 4: create folder and change directory
   
-  dir.create(file.path(mainDir,print(as.character(a$ECO_NAME[which(a$eco_id==a$eco_id[y])]))))
-  setwd(file.path(mainDir,print(as.character(a$ECO_NAME[which(a$eco_id==a$eco_id[y])]))))
+  dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])]))))
+  setwd(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])]))))
   dir.create(file.path(getwd(),"raw"))
   setwd(file.path(getwd(), "raw"))
-  
+
   #STEP 5: getting list of species to run - includes optional filtering to see if nodes are impacted by development  #######
   
   #this optional filtering selects all species with nodes touching the area affected (using the "where impacted = 1" clause)
   #Note that links could be impacted too if overlap development so may want to run all by using /* and */ either side of the "where impacted = 1" clause 
   #Note: can choose specific runs for different corridors by choosing the id number from the development (e.g. fid_corrid number) - for these see development file
-  strSQL="(
+  strSQL=paste0("
   select distinct foo1.id_no1, foo1.season, foo1.count from 
   (select id_no, id_no1, season::int, count (distinct (node_id)) 
   from  cci_2017.int_grid_pas_trees_by_species_",a$eco_id[y]," group by id_no, id_no1,season order by count desc) 
   as foo1,
-  (select distinct id_no1, season from cci_2017.int_grid_pas_trees_by_species_",a$eco_id[y]," 
-  /*where impacted =-1 and not impacted = 1*/ /* and fid_corrid=6*/) 
+  (select distinct id_no1, season from cci_2017.int_grid_pas_trees_by_species_",a$eco_id[y],") 
   as foo2
   where 
   foo1.count>1
   and foo1.id_no1=foo2.id_no1 
   and foo1.season = foo2.season::int
   order by count desc
-  )" 
-  spList
-  spList<- dbGetQuery(con, strSQL)   ## Submits a sql statement
+  ") 
+
+  spList<- dbGetQuery(con, strSQL)   ## Submits an sql statement
   
   #spList<-fetch(spList,n=-1) ##place data in dataframe
   
-  head(spList)#view results
-  str(spList)
+  #head(spList)#view results
+  #str(spList)
+  
   
   
   #STEP 6: loop through species in the list (the spList object) and for each one
@@ -271,9 +285,9 @@ dbGetQuery(con, strSQL)
       else 0
       end   as dist_over_barrier*/
       from
-      (select area, wdpa, fid_corrid, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_by_species_",a$eco_id[y]," where id_no1 =",id_no1," and season::int = ",season,")
+      (select area, /*wdpa,*/ fid_corrid, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_by_species_",a$eco_id[y]," where id_no1 =",id_no1," and season::int = ",season,")
       as a,
-      (select area, wdpa, fid_corrid, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_by_species_",a$eco_id[y]," where id_no1 =",id_no1," and season::int = ",season,")  
+      (select area, /*wdpa*/ fid_corrid, the_geom_azim_eq_dist as the_geom, id_no1, season::int, node_id, grid_id from int_grid_pas_trees_by_species_",a$eco_id[y]," where id_no1 =",id_no1," and season::int = ",season,")  
       as  b,
       (select taxon_id as id_no1, final_value_to_use as mean_dist, (final_value_to_use*8*1000) as cutoff_dist from dispersal_data where taxon_id =", id_no1,") 
       as c
@@ -307,7 +321,7 @@ dbGetQuery(con, strSQL)
       
       print (dbListResults(con)[[1]])
       strSQL=paste0("SET search_path=cci_2017, cci_2015,public,topology; 
-                    (select node_id, area, wdpa, fid_corrid from int_grid_pas_trees_by_species_",a$eco_id[y]," where id_no1 =",id_no1," and season::int = ",season,")" )
+                    (select node_id, area, fid_corrid from int_grid_pas_trees_by_species_",a$eco_id[y]," where id_no1 =",id_no1," and season::int = ",season,")" )
       strSQL=gsub("\n", "", strSQL)
       #print(strSQL)
       nodes<- dbSendQuery(con, strSQL)   ## Submits a sql statement
@@ -323,8 +337,11 @@ dbGetQuery(con, strSQL)
     gc()
   }
   
-    
+}   
   
+
+
+
   forestloss<- read.dbf("C:/Thesis_analysis/Development_corridors/conefor/ecoregions/gis_data/hansenNew_eco_20km_passNew_kba_corr_forestloss_clean_WGS.dbf")
   forestloss<- forestloss[,c("FID_loss_o", "nodiddiss4")]
   colnames(forestloss)<- c("loss", "node") 
@@ -348,20 +365,20 @@ dbGetQuery(con, strSQL)
   file_listt0<- lapply(file_list2, function(x) x[!(x$loss > -1),])
   file_listt0<- lapply(file_listt0, function(x) x[c(1,2)]) 
   
-  dir.create(file.path(mainDir,print(as.character(a$ECO_NAME[which(a$eco_id==y)])), "t0"))
+  dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==y)])), "t0"))
   
   sapply(names(file_listt0), function(x) write.table(file_listt0[[x]], 
-                                                     file=paste0(mainDir, "/",print(as.character(a$ECO_NAME[which(a$eco_id==y)])),"/t0/",x,".txt"), 
+                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==y)])),"/t0/",x,".txt"), 
                                                      col.names=F, row.names=F ))
   
   file_listt1<- lapply(file_list2, function(x) x[!(x$loss > -1),])
   file_listt1<- lapply(file_list2, function(x) x[(x$fid_corrid== -1),])
   file_listt1<- lapply(file_listt1, function(x) x[c(1,2)]) 
   
-  dir.create(file.path(mainDir,print(as.character(a$ECO_NAME[which(a$eco_id==y)])), "t1"))
+  dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==y)])), "t1"))
   
   sapply(names(file_listt1), function(x) write.table(file_listt1[[x]], 
-                                                     file=paste0(mainDir, "/",print(as.character(a$ECO_NAME[which(a$eco_id==y)])),"/t1/",x,".txt"), 
+                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==y)])),"/t1/",x,".txt"), 
                                                      col.names=F, row.names=F ))
   
   ## Distances
@@ -382,7 +399,7 @@ dbGetQuery(con, strSQL)
   
   
   sapply(names(file_listt0), function(x) write.table(file_listt0[[x]], 
-                                                     file=paste0(mainDir, "/",print(as.character(a$ECO_NAME[which(a$eco_id==y)])),"/t0/",x,".txt"), 
+                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==y)])),"/t0/",x,".txt"), 
                                                      col.names=F, row.names=F ))
   
   file_listt1<- lapply(file_list2, function(x) x[!(x$loss.x > -1 | x$loss.y > -1),])
@@ -391,7 +408,7 @@ dbGetQuery(con, strSQL)
   
   
   sapply(names(file_listt1), function(x) write.table(file_listt1[[x]], 
-                                                     file=paste0(mainDir, "/",print(as.character(a$ECO_NAME[which(a$eco_id==y)])),"/t1/",x,".txt"), 
+                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==y)])),"/t1/",x,".txt"), 
                                                      col.names=F, row.names=F ))
   
   

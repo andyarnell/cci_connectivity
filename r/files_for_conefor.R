@@ -26,8 +26,11 @@ setwd(mainDir)
 node_id_field<-"nodiddiss4"
 gridcell_id_field<-"fid_fnet_2"
 
-#name of species table
+#name of imported species table
 sp_merged_all<-"sp_merged_c1200_alt_clip"
+#making name of new clean species table 
+sp_merged_all_clean<-paste0(sp_merged_all,"_clean")
+
 ##load driver
 drv <- dbDriver("PostgreSQL")
 con <- dbConnect(drv, host='localhost', port='5432', dbname='biodiv_processing', user='postgres', password='Seltaeb1') ##assign connection info
@@ -40,14 +43,17 @@ sp_status<-read.csv("C:/Data/cci_connectivity/raw/species/spp_name_id_category_j
 str(sp_status)#check it worked
 
 
+#get dispersal distances from csv
+Dist<- read.csv("C:/Data/cci_connectivity/scratch/dispersal/dispersal_estimates.csv", h=T)
+Dist<- Dist[,c(5,20)]
+colnames(Dist) [1]<- "id_no"
+colnames(Dist) [2]<- "Disp_mean"
+Dist
 
 
 #STEP 3: 
-#eco<- read.dbf("C:/Data/cci_connectivity/scratch/ecoregions/freq_20km_kba_forestloss.dbf")
-#new_name<- sapply(eco$eco_name, function(x) chartr( " ,-","___", x))
-#eco$NEW_eco_name<- new_name 
-#eco<- eco[, -1]
 
+##removed the inporting csv code here and used the raw input file from postgres instead - although the dbf of the shapefile would work too.
 strSQL<-paste0("SET search_path=cci_2017,cci_2015,public,topology;
 select eco_id::bigint, count (eco_name), eco_name as raw_eco_name from grid_pas_trees_40postcent_30agg_diss_ovr1ha_t1 group by eco_name,eco_id")
 
@@ -58,20 +64,23 @@ str(eco)
 eco$eco_name<- (sapply(eco$raw_eco_name, function(x) chartr( " ,-","___", x)))
 write.csv(eco,"C:/Data/cci_connectivity/scratch/eco_nodecount.csv",row.names=F, quote = FALSE)
 
+
 #select those in west africa using a list
-Wafrica<- c("Eastern_Guinean_forests", "West_Sudanian_savanna", "Guinean_forest-savanna_mosaic", 
-            "Western_Guinean_lowland_forests", "Jos_Plateau_forest-grassland_mosaic", "Guinean_mangroves",
+Wafrica<- c("Eastern_Guinean_forests", "West_Sudanian_savanna", "Guinean_forest_savanna_mosaic", 
+            "Western_Guinean_lowland_forests", "Jos_Plateau_forest_grassland_mosaic", "Guinean_mangroves",
             "Central_African_mangroves", "Guinean_montane_forests", "Lake_Chad_flooded_savanna", 
-            "Cross-Sanaga-Bioko_coastal_forests", "Cross-Niger_transition_forests", "Niger_Delta_swamp_forests") 
+            "Cross_Sanaga_Bioko_coastal_forests", "Cross_Niger_transition_forests", "Niger_Delta_swamp_forests") 
 1:length(Wafrica)
-Wafrica$Wafrica<-(sapply(Wafrica$Wafrica, function(x) chartr( " ,-","___", x)))
+#Wafrica$Wafrica<-(sapply(Wafrica$Wafrica, function(x) chartr( " ,-","___", x)))
 Wafrica<-data.frame(Wafrica)
 a<-merge(eco,Wafrica,by.x="eco_name",by.y="Wafrica")
 #missing lake cahd but no forest i think so no join
 
+a
+
 #a<- data.frame(eco_name= c("Ethiopian_montane_moorlands", "Eastern_Arc_forests"), eco_id= c(31008,30109))
 #a<-eco
-a
+
 
 strSQL<- paste0(
   "--AIM: Make species EOO,ESH and range-rarity (national) maps based on a grid covering the area of interest (aoi) This has been used for landshift results for africa paper with kassel University
@@ -124,12 +133,33 @@ strSQL<- paste0(
 dbGetQuery(con, strSQL)
 
   
-a
+strSQL<-paste0("--Aim: make a cleaner species layer
+drop table if exists ",sp_merged_all_clean,";
+create table ",sp_merged_all_clean," as
+select foo1.*, 
+left((REPLACE(foo1.id_no, 'sp_', '')), length((REPLACE(foo1.id_no, 'sp_', ''))) - 2)::bigint as id_no1,
+right(foo1.id_no,1)::int as season
+from 
+(select spp_id as id_no, the_geom as the_geom from ",sp_merged_all,")
+as foo1;
+
+SELECT UpdateGeometrySRID('",sp_merged_all_clean,"','the_geom',4326);
+
+drop index if exists ",sp_merged_all_clean,"_geom_gist;
+CREATE INDEX ",sp_merged_all_clean,"_geom_gist ON ",sp_merged_all_clean," USING GIST (the_geom);
+CLUSTER ",sp_merged_all_clean," USING ",sp_merged_all_clean,"_geom_gist;
+ANALYZE ",sp_merged_all_clean,";
+
+create index ",sp_merged_all_clean,"_index_id_no1 on ",sp_merged_all_clean," (id_no1);
+create index ",sp_merged_all_clean,"_index_season on ",sp_merged_all_clean," (season);")
+
+dbGetQuery(con,strSQL)
 
 
-for (y in 1:4){#length(a$eco_id)){
+
+for (y in 4:4){#length(a$eco_id)){
   print (a$eco_id[y])
-}
+
   
   strSQL<- paste0(
     "--AIM: Make species EOO,ESH and range-rarity (national) maps based on a grid covering the area of interest (aoi) This has been used for landshift results for africa paper with kassel University
@@ -162,13 +192,7 @@ for (y in 1:4){#length(a$eco_id)){
     as foo1,
     /*(select id_no, st_makevalid(st_transform(st_buffer(the_geom,0),54032)) as the_geom from forest_aves_in_africa order by id_no)*/
     /*(select spp_id as id_no, the_geom  from sp_merged_all order by spp_id limit 200) */ 
-    (
-    select foo1.*, 
-    left((REPLACE(foo1.id_no, 'sp_', '')), length((REPLACE(foo1.id_no, 'sp_', ''))) - 2)::bigint as id_no1,
-    right(foo1.id_no,1)::int as season
-    from 
-    (select spp_id as id_no, the_geom as the_geom from ",sp_merged_all,") as foo1
-    )
+    ",sp_merged_all_clean,"
     as foo2
     where
     st_intersects(foo1.the_geom,foo2.the_geom)
@@ -186,7 +210,7 @@ for (y in 1:4){#length(a$eco_id)){
 dbGetQuery(con, strSQL)
 }    
 
-for (y in 1:4){#length(a$eco_id)){
+for (y in 4:4){#length(a$eco_id)){
   print (a$eco_id[y])
   
   
@@ -216,21 +240,17 @@ for (y in 1:4){#length(a$eco_id)){
   dbGetQuery(con, strSQL)
 }
   
-for (y in 1:4){#length(a$eco_id)){
+
+for (y in 4:4){#length(a$eco_id)){
   print (a$eco_id[y])
   
-  #STEP 4: create folder and change directory
-  
+  #STEP 4: create folder and change directory  
   dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])]))))
   setwd(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])]))))
   dir.create(file.path(getwd(),"raw"))
   setwd(file.path(getwd(), "raw"))
 
-  #STEP 5: getting list of species to run - includes optional filtering to see if nodes are impacted by development  #######
-  
-  #this optional filtering selects all species with nodes touching the area affected (using the "where impacted = 1" clause)
-  #Note that links could be impacted too if overlap development so may want to run all by using /* and */ either side of the "where impacted = 1" clause 
-  #Note: can choose specific runs for different corridors by choosing the id number from the development (e.g. fid_corrid number) - for these see development file
+  #STEP 5: getting list of species in study area for next steps 
   strSQL=paste0("
   select distinct foo1.id_no1, foo1.season, foo1.count from 
   (select id_no, id_no1, season::int, count (distinct (node_id)) 
@@ -246,26 +266,20 @@ for (y in 1:4){#length(a$eco_id)){
   ") 
 
   spList<- dbGetQuery(con, strSQL)   ## Submits an sql statement
+  nrow(spList)
+  print(paste0("Number of species-season combinations in ecoregion (",a$eco_name[which(a$eco_id==a$eco_id[y])], "): ",nrow(spList)  ))
   
-  #spList<-fetch(spList,n=-1) ##place data in dataframe
-  
-  #head(spList)#view results
-  #str(spList)
-  
-  
-  
-  #STEP 6: loop through species in the list (the spList object) and for each one
-  
-  spList$id_no1
+  #STEP 6: loop through species in the list (the spList object) and for each one create distance files in raw folder
   for (i in 1:nrow(spList)){
     
     gc()#garbage collection in casememory fills up
     id_no1<-spList$id_no1[i]
     season<-spList$season[i]
-    print (id_no1)
-    print (season)
-    print(spList$count[i])
+    print (paste0("id_no:",id_no1))
+    print (paste0("season: ",season))
+    print (paste0("nodes: ",(spList$count[i]) ))
     print (i)
+    print (paste0("from total of: ",nrow(spList)))
     strSQL=paste0(
       "SET search_path=cci_2017, cci_2015,public,topology;
       select 
@@ -338,47 +352,72 @@ for (y in 1:4){#length(a$eco_id)){
   }
   
 }   
-  
 
 
+#Step 7: separating files into time periods using t0 and t1 based on specific columns - i.e. loss of forest, corridor
+mainDir<- "C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species/ecoregions"
+setwd(mainDir)
 
-  forestloss<- read.dbf("C:/Thesis_analysis/Development_corridors/conefor/ecoregions/gis_data/hansenNew_eco_20km_passNew_kba_corr_forestloss_clean_WGS.dbf")
-  forestloss<- forestloss[,c("FID_loss_o", "nodiddiss4")]
-  colnames(forestloss)<- c("loss", "node") 
-  
-  
-  ## Nodes
-  #activecorr<- c(0,2,3,8,14,20,22,25,26,31)
-  
+#get look up table of forest loss, corridors and grid id (the latter should already be there but may not be needed)
+forestloss<- read.dbf("C:/Data/cci_connectivity/scratch/nodes/corridors/hansenNew_eco_20km_passNew_kba_corr_floss1_wgs84.dbf")
+forestloss<- forestloss[,c("FID_loss_o", "nodiddiss4","FID_corrid","FID_fnet_2")]
+colnames(forestloss)<- c("loss", "node","fid_corrid","gridcell_id") 
+str(forestloss)
+
+file_list1<- list.files()
+str(file_list1)
+file_list1<-data.frame(file_list1)
+file_list1$file_list1<-as.character(file_list1$file_list1)
+
+a$eco_name<-as.character(a$eco_name)
+
+str(file_list1)
+
+a<-merge(a,file_list1,by.x="eco_name",by.y="file_list1",all.y)
+
+str(a)
+
+for (y in 4:4){#1:length(a$eco_id)){
+  print (a$eco_id[y])
+  setwd(paste0(mainDir,"/",as.character(a$eco_name[which(a$eco_id==a$eco_id[y])]),"/raw"))
+  getwd()
   file_list<- list.files()
   file_list
+  
+  ## Nodes
   string_pattern<- "nodes_*"
   file_list<- file_list[lapply(file_list, function(x) length(grep(string_pattern, x, value=FALSE))) ==1 ]
   file_list
   
+  
   file_list2<- lapply(file_list, read.table)
   file_list<- strsplit(file_list, ".txt")
-  file_list<- lapply(file_list, function(x) gsub("nodes", "nodes_adj",x))
+  #file_list<- lapply(file_list, function(x) gsub("nodes", "nodes",x))
   names(file_list2)<- file_list
   file_list2<- lapply(file_list2, setNames, nm=c("node", "area"))
   file_list2<- lapply(file_list2, function(x) merge(x, forestloss, by= "node"))
-  file_listt0<- lapply(file_list2, function(x) x[!(x$loss > -1),])
+  str(file_list2)
+  ####t0 nodes
+  file_listt0<-file_list2## if want to remove loss in t0 uncomment next line
+  #file_listt0<- lapply(file_list2, function(x) x[!(x$loss > -1),])
+  
   file_listt0<- lapply(file_listt0, function(x) x[c(1,2)]) 
   
-  dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==y)])), "t0"))
+  dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), "t0"))
   
   sapply(names(file_listt0), function(x) write.table(file_listt0[[x]], 
-                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==y)])),"/t0/",x,".txt"), 
+                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t0/",x,".txt"), 
                                                      col.names=F, row.names=F ))
-  
+  ####t1 nodes
   file_listt1<- lapply(file_list2, function(x) x[!(x$loss > -1),])
-  file_listt1<- lapply(file_list2, function(x) x[(x$fid_corrid== -1),])
+  ## if want to corridors removed in t1 uncomment next line
+  #file_listt1<- lapply(file_list2, function(x) x[(x$fid_corrid== -1),])
   file_listt1<- lapply(file_listt1, function(x) x[c(1,2)]) 
   
-  dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==y)])), "t1"))
+  dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), "t1"))
   
   sapply(names(file_listt1), function(x) write.table(file_listt1[[x]], 
-                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==y)])),"/t1/",x,".txt"), 
+                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t1/",x,".txt"), 
                                                      col.names=F, row.names=F ))
   
   ## Distances
@@ -386,46 +425,70 @@ for (y in 1:4){#length(a$eco_id)){
   file_list
   string_pattern<- "distances_*"
   file_list<- file_list[lapply(file_list, function(x) length(grep(string_pattern, x, value=FALSE))) ==1 ]
+  file_list
+  i=0
+  step<-10
+  j<-i+1
   
-  file_list2<- lapply(file_list, read.table)
-  file_list<- strsplit(file_list, ".txt")
-  file_list<- lapply(file_list, function(x) gsub("distances", "distances_adj",x))
-  names(file_list2)<- file_list
-  file_list2<- lapply(file_list2, setNames, nm=c("from_node", "to_node", "distance"))
-  file_list2<- lapply(file_list2, function(x) merge(x, forestloss, by.x= "from_node", by.y= "node", all.x=TRUE))
-  file_list2<- lapply(file_list2, function(x) merge(x, forestloss, by.x= "to_node", by.y= "node", all.x=TRUE))
-  file_listt0<- lapply(file_list2, function(x) x[!(x$loss.x > -1 | x$loss.y > -1),])
-  file_listt0<- lapply(file_listt0, function(x) x[c(1,2,3)]) 
+  file_list_all<-file_list
+  loopcount<-0#keep starting at 1
   
+  while (j <= length(file_list_all)){
+    gc()
+    print (i)
+    print (j)
+    file_list<-file_list_all[i:j]
+    file_list2<- lapply(file_list, read.table)
+    file_list<- strsplit(file_list, ".txt")
+    #file_list<- lapply(file_list, function(x) gsub("distances", "distances",x))
+    names(file_list2)<- file_list
+    file_list2<- lapply(file_list2, setNames, nm=c("from_node", "to_node", "distance","from_fid_corrid","to_fid_corrid","from_gridcell","to_gridcell"))
+    file_list2<- lapply(file_list2, function(x) merge(x, forestloss, by.x= "from_node", by.y= "node", all.x=TRUE))
+    file_list2<- lapply(file_list2, function(x) merge(x, forestloss, by.x= "to_node", by.y= "node", all.x=TRUE))
+    #str(file_list2)
+    ###t0 distances
+    
+    file_listt0<-file_list2## if want to remove loss in t0 uncomment next line
+    #file_listt0<- lapply(file_list2, function(x) x[!(x$loss.x > -1 | x$loss.y > -1),])
+    
+    file_listt0<- lapply(file_listt0, function(x) x[c(1,2,3)]) 
+    str(forestloss)
+    sapply(names(file_listt0), function(x) write.table(file_listt0[[x]], 
+                                                       file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t0/",x,".txt"), 
+                                                       col.names=F, row.names=F ))
+    ###t1 distances
+    file_listt1<- lapply(file_list2, function(x) x[!(x$loss.x > -1 | x$loss.y > -1),])
+    ## if want to corridors removed in t1 uncomment next line
+    #file_listt1<- lapply(file_listt1, function(x) x[(x$from_fid_corrid== -1 & x$to_fid_corrid== -1),])
+    file_listt1<- lapply(file_listt1, function(x) x[c(1,2,3)]) 
+    
+    
+    sapply(names(file_listt1), function(x) write.table(file_listt1[[x]], 
+                                                       file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t1/",x,".txt"), 
+                                                       col.names=F, row.names=F ))
+    if (loopcount==0){
+      j<-j+step
+    } else {
+      j=j
+    }
+    if (length(file_list_all) >= j+(step)){
+      i<-i+step+1
+      j<-i+step
+    } else{ 
+      i<-j+1
+      j<-j+2
+    }
+    loopcount<-loopcount+1
+  }
   
-  sapply(names(file_listt0), function(x) write.table(file_listt0[[x]], 
-                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==y)])),"/t0/",x,".txt"), 
-                                                     col.names=F, row.names=F ))
-  
-  file_listt1<- lapply(file_list2, function(x) x[!(x$loss.x > -1 | x$loss.y > -1),])
-  file_listt1<- lapply(file_listt1, function(x) x[(x$from_fid_corrid== -1 & x$to_fid_corrid== -1),])
-  file_listt1<- lapply(file_listt1, function(x) x[c(1,2,3)]) 
-  
-  
-  sapply(names(file_listt1), function(x) write.table(file_listt1[[x]], 
-                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==y)])),"/t1/",x,".txt"), 
-                                                     col.names=F, row.names=F ))
-  
+  #copy metadata to ecoregion csv - note some species may not have output files - as not enough nodes (>1) within max dispersal 
+  spList_meta<-merge(spList,Dist,by.x="id_no1",by.y="id_no")
+  head(spList_meta)
+  mdata_path<-file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])))
+  fname<-paste0(mdata_path,"/mdata.csv")
+  fname
+  write.csv(spList_meta,fname,row.names=FALSE)
   
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+          
+      

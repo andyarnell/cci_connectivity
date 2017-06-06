@@ -266,8 +266,18 @@ for (y in 4:4){#length(a$eco_id)){
   ") 
 
   spList<- dbGetQuery(con, strSQL)   ## Submits an sql statement
+  # new species list: spList for use in next sql query
   nrow(spList)
   print(paste0("Number of species-season combinations in ecoregion (",a$eco_name[which(a$eco_id==a$eco_id[y])], "): ",nrow(spList)  ))
+  
+  #copy metadata to ecoregion csv - note some species may not have output files - as not enough nodes (>1) within max dispersal 
+  spList_meta<-merge(spList,Dist,by.x="id_no1",by.y="id_no")
+  head(spList_meta)
+  mdata_path<-file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])))
+  fname<-paste0(mdata_path,"/mdata.csv")
+  fname
+  write.csv(spList_meta,fname,row.names=FALSE)
+  
   
   #STEP 6: loop through species in the list (the spList object) and for each one create distance files in raw folder
   for (i in 1:nrow(spList)){
@@ -373,11 +383,15 @@ a$eco_name<-as.character(a$eco_name)
 
 str(file_list1)
 
-a<-merge(a,file_list1,by.x="eco_name",by.y="file_list1",all.y)
 
+################################################################
+########
+#not sure about this bit as it means you need to have the files beforehand - uncomment if needed and get errors running last bit
+#a<-merge(a,file_list1,by.x="eco_name",by.y="file_list1",all.y)
+#############
 str(a)
 
-for (y in 4:4){#1:length(a$eco_id)){
+for (y in 1:length(a$eco_id)){
   print (a$eco_id[y])
   setwd(paste0(mainDir,"/",as.character(a$eco_name[which(a$eco_id==a$eco_id[y])]),"/raw"))
   getwd()
@@ -397,28 +411,43 @@ for (y in 4:4){#1:length(a$eco_id)){
   file_list2<- lapply(file_list2, setNames, nm=c("node", "area"))
   file_list2<- lapply(file_list2, function(x) merge(x, forestloss, by= "node"))
   str(file_list2)
-  ####t0 nodes
-  file_listt0<-file_list2## if want to remove loss in t0 uncomment next line
-  #file_listt0<- lapply(file_list2, function(x) x[!(x$loss > -1),])
   
-  file_listt0<- lapply(file_listt0, function(x) x[c(1,2)]) 
+#   ####t0 nodes
+#   file_listt0<-file_list2## if want to remove loss in t0 uncomment next line
+#   #file_listt0<- lapply(file_list2, function(x) x[!(x$loss > -1),])
+#   
+#   file_listt0<- lapply(file_listt0, function(x) x[c(1,2)]) 
+#   
+#   dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), "t0"))
+#   
+#   sapply(names(file_listt0), function(x) write.table(file_listt0[[x]], 
+#                                                      file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t0/",x,".txt"), 
+#                                                      col.names=F, row.names=F ))
+#   
+#   ####t1 nodes
+#   file_listt1<- lapply(file_list2, function(x) x[!(x$loss > -1),])
+#   ## if want to corridors removed in t1 uncomment next line
+#   #file_listt1<- lapply(file_list2, function(x) x[(x$fid_corrid== -1),])
+#   file_listt1<- lapply(file_listt1, function(x) x[c(1,2)]) 
+#   
+#   dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), "t1"))
+#   
+#   sapply(names(file_listt1), function(x) write.table(file_listt1[[x]], 
+#                                                      file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t1/",x,".txt"), 
+#                                                      col.names=F, row.names=F ))
+# 
+#   ####t2 nodes
+  file_listt2<- lapply(file_list2, function(x) x[!(x$loss > -1),])
+  ## if want to corridors removed in t2 uncomment next line
+  file_listt2<- lapply(file_list2, function(x) x[(x$fid_corrid== -1),])
+  file_listt2<- lapply(file_listt2, function(x) x[c(1,2)]) 
   
-  dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), "t0"))
+  dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), "t2"))
   
-  sapply(names(file_listt0), function(x) write.table(file_listt0[[x]], 
-                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t0/",x,".txt"), 
+  sapply(names(file_listt2), function(x) write.table(file_listt2[[x]], 
+                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t2/",x,".txt"), 
                                                      col.names=F, row.names=F ))
-  ####t1 nodes
-  file_listt1<- lapply(file_list2, function(x) x[!(x$loss > -1),])
-  ## if want to corridors removed in t1 uncomment next line
-  #file_listt1<- lapply(file_list2, function(x) x[(x$fid_corrid== -1),])
-  file_listt1<- lapply(file_listt1, function(x) x[c(1,2)]) 
   
-  dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), "t1"))
-  
-  sapply(names(file_listt1), function(x) write.table(file_listt1[[x]], 
-                                                     file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t1/",x,".txt"), 
-                                                     col.names=F, row.names=F ))
   
   ## Distances
   file_list<- list.files()
@@ -436,7 +465,9 @@ for (y in 4:4){#1:length(a$eco_id)){
   while (j <= length(file_list_all)){
     gc()
     print (i)
+    print ("to")
     print (j)
+    print paste0("out of files: ",length(file_list_all))
     file_list<-file_list_all[i:j]
     file_list2<- lapply(file_list, read.table)
     file_list<- strsplit(file_list, ".txt")
@@ -446,26 +477,38 @@ for (y in 4:4){#1:length(a$eco_id)){
     file_list2<- lapply(file_list2, function(x) merge(x, forestloss, by.x= "from_node", by.y= "node", all.x=TRUE))
     file_list2<- lapply(file_list2, function(x) merge(x, forestloss, by.x= "to_node", by.y= "node", all.x=TRUE))
     #str(file_list2)
-    ###t0 distances
+#   
+#     ###t0 distances
+#     
+#     file_listt0<-file_list2## if want to remove loss in t0 uncomment next line
+#     #file_listt0<- lapply(file_list2, function(x) x[!(x$loss.x > -1 | x$loss.y > -1),])
+#     
+#     file_listt0<- lapply(file_listt0, function(x) x[c(1,2,3)]) 
+#     str(forestloss)
+#     sapply(names(file_listt0), function(x) write.table(file_listt0[[x]], 
+#                                                        file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t0/",x,".txt"), 
+#                                                        col.names=F, row.names=F ))
+#     ###t1 distances
+#     file_listt1<- lapply(file_list2, function(x) x[!(x$loss.x > -1 | x$loss.y > -1),])
+#     ## if want to corridors removed in t1 uncomment next line
+#     #file_listt1<- lapply(file_listt1, function(x) x[(x$from_fid_corrid== -1 & x$to_fid_corrid== -1),])
+#     file_listt1<- lapply(file_listt1, function(x) x[c(1,2,3)]) 
+#     
+#     
+#     sapply(names(file_listt1), function(x) write.table(file_listt1[[x]], 
+#                                                        file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t1/",x,".txt"), 
+#                                                        col.names=F, row.names=F ))
+    ###t2 distances
+    file_listt2<- lapply(file_list2, function(x) x[!(x$loss.x > -1 | x$loss.y > -1),])
+    ## if want to corridors removed in t2 uncomment next line
+    file_listt2<- lapply(file_listt2, function(x) x[(x$from_fid_corrid== -1 & x$to_fid_corrid== -1),])
+    file_listt2<- lapply(file_listt2, function(x) x[c(1,2,3)]) 
     
-    file_listt0<-file_list2## if want to remove loss in t0 uncomment next line
-    #file_listt0<- lapply(file_list2, function(x) x[!(x$loss.x > -1 | x$loss.y > -1),])
     
-    file_listt0<- lapply(file_listt0, function(x) x[c(1,2,3)]) 
-    str(forestloss)
-    sapply(names(file_listt0), function(x) write.table(file_listt0[[x]], 
-                                                       file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t0/",x,".txt"), 
+    sapply(names(file_listt2), function(x) write.table(file_listt2[[x]], 
+                                                       file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t2/",x,".txt"), 
                                                        col.names=F, row.names=F ))
-    ###t1 distances
-    file_listt1<- lapply(file_list2, function(x) x[!(x$loss.x > -1 | x$loss.y > -1),])
-    ## if want to corridors removed in t1 uncomment next line
-    #file_listt1<- lapply(file_listt1, function(x) x[(x$from_fid_corrid== -1 & x$to_fid_corrid== -1),])
-    file_listt1<- lapply(file_listt1, function(x) x[c(1,2,3)]) 
     
-    
-    sapply(names(file_listt1), function(x) write.table(file_listt1[[x]], 
-                                                       file=paste0(mainDir, "/",print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])),"/t1/",x,".txt"), 
-                                                       col.names=F, row.names=F ))
     if (loopcount==0){
       j<-j+step
     } else {
@@ -480,15 +523,7 @@ for (y in 4:4){#1:length(a$eco_id)){
     }
     loopcount<-loopcount+1
   }
-  
-  #copy metadata to ecoregion csv - note some species may not have output files - as not enough nodes (>1) within max dispersal 
-  spList_meta<-merge(spList,Dist,by.x="id_no1",by.y="id_no")
-  head(spList_meta)
-  mdata_path<-file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])))
-  fname<-paste0(mdata_path,"/mdata.csv")
-  fname
-  write.csv(spList_meta,fname,row.names=FALSE)
-  
+
 }
           
       

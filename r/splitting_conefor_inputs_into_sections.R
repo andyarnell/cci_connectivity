@@ -19,8 +19,7 @@
   ###########################
   # input folders  
   in_folder_1<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species/ecoregions"
-  workingFolder_2<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/nested/for_node_varpc/ecoregions"
-  workingFolder_3<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/nested/for_gridcell_eca/ecoregions"
+  workingFolder_2<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species/split/ecoregions"
   workingFolder_4<-"C:/Data/cci_connectivity/scratch/dispersal" ###contains dispersal distances if running probabilities 
   
   #get list of ecoregions to loop through
@@ -42,6 +41,7 @@
   a
   
 a<-a[2:3,]  
+
 #get dispersal constants by species
 setwd(workingFolder_4)
 Dist<- read.csv("dispersal_estimates.csv", h=T)
@@ -69,7 +69,6 @@ str(unique(lut_gridcell$gridcell_id))
 #Optional parameter to Use extended version? should be more accurate, but slower - as will often include more nodes
 extended_inclusion_dist<-FALSE
 write.table(paste0("extended version==",extended_inclusion_dist, " i.e., if true (and file creation times match this log file) then using extended version where larger number of nodes may be included - slower, but should be more accurate"),paste0(out_folder2,"/1_log.txt"),row.names = FALSE,col.names = FALSE)
-write.table(paste0("extended version==",extended_inclusion_dist, " i.e., if true (and file creation times match this log file) then using extended version where larger number of nodes may be included - slower, but should be more accurate"),paste0(out_folder3,"/1_log.txt"),row.names = FALSE,col.names = FALSE)
 
 print ("extended inclusion distance:")
 print (extended_inclusion_dist)
@@ -78,22 +77,18 @@ print (extended_inclusion_dist)
 k_number=20
 #Optional parameter to convert distances to probabilities - (TRUE or FALSE) easier for creating conefor batches as only one command needed for all files in folder
 
-convert_to_probabilities=TRUE
+convert_to_probabilities=FALSE
 print ("converting distances to probabilities:")
 print (convert_to_probabilities)
 #####################
-
 
 for (y in 1:length(a$eco_id)){
   #list time periods
   time_periods<-c("t0","t1")
   for (k in 1:length(time_periods)){
     dir.create(file.path(workingFolder_2,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), time_periods[k]), recursive = TRUE)
-    dir.create(file.path(workingFolder_3,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), time_periods[k]), recursive = TRUE)
-
     out_folder2<-file.path(workingFolder_2,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), time_periods[k])
-    out_folder3<-file.path(workingFolder_3,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), time_periods[k])
- 
+
     #######################
     setwd(file.path(in_folder_1,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), time_periods[k]))
     file_list <- list.files()
@@ -102,18 +97,15 @@ for (y in 1:length(a$eco_id)){
     nodesprefix<-"nodes"
     
     #selecting files, based on string recognition to select outputs
-    stringPattern<-"distances_" #distancesprefix
+    stringPattern<-"nodes" #nodes prefix
     stringPattern<-paste0(substr(stringPattern,1,nchar(stringPattern)-1),"*")
     #stringPattern<-"distances_22692177_1"
     #get list of species files    
     file_list<-file_list[lapply(file_list,function(x) length(grep(stringPattern,x,value=FALSE))) == 1]
     file_list<-unique(file_list)
     x<-file_list
-    #which columns gridcell ids will be in - typcially 4 and 5 
-    fromgridcellid.col=4
-    togridcellid.col=5
-    i=1
-    j=1
+     i=1
+     j=1
     
     getwd()
     #split analysis by distance file (one per species id and season combination)
@@ -157,8 +149,15 @@ for (y in 1:length(a$eco_id)){
       in.nodes$V3<-1 
       str(cells)
       
+      
+      m=0
+      step<-10
+      j<-m+1
+      loopcount<-0#keep starting at 1
       ##split by grid cell id 
-      for (j in 1:nrow(cells)){ 
+      
+      while (j <= length(cells)){
+      #for (j in 1:nrow(cells)){ 
         print (paste0(j," of ",nrow(cells)," grid cells"))
         ##then for each grid cell select all distances with that grid cell id
         rows.subset<-unique(in.data[which(in.data[fromgridcellid.col]==cells[j,]|in.data[togridcellid.col]==cells[j,]),])[1:3]
@@ -199,77 +198,20 @@ for (y in 1:length(a$eco_id)){
         write.table(rows.subset,out.distances.name,row.names=F, col.names=F)
         out.nodes.name<-sub(distancesprefix,nodesprefix,out.distances.name)
         write.table(nodes.out,out.nodes.name,row.names=F, col.names=F)
-        #################
-        #adding extras
-        rows.subset1<-rows.subset
-        k=0
-        zero.rows<-rows.subset1
-        while (nrow(zero.rows)>=1 & extended_inclusion_dist==TRUE & k <k_number){
-          #print("K")
-          #print (k)
-          k=k+1
-          #select subset with zero distances
-          zero.dist1<-subset(rows.subset1[1],rows.subset1[3]==0)
-          zero.dist2<-subset(rows.subset1[2],rows.subset1[3]==0)
-          names(zero.dist2)<-names(zero.dist1)
-          zero.dist<-rbind(zero.dist1,zero.dist2)
-          zero.dist<-unique(subset(zero.dist, !is.na(zero.dist)))
-          #str(nodes.subset)
-          #str(zero.dist)
-          #nodes.subset<-c(nodes.subset)
-          #select only those nodes that aren't in the cell of interest
-          #zero.dist<-subset(zero.dist,zero.dist$V1 %in% nodes.subset$V1 ==FALSE)
-          
-          from.rows<-subset(in.data,in.data$V1==zero.dist$V1[k])
-          to.rows<-subset(in.data,in.data$V2==zero.dist$V1[k])
-          zero.rows<-rbind(from.rows,to.rows)
-          zero.rows<-cbind(zero.rows[1:3])
-          zero.rows<-unique(zero.rows)
-          #zero.rows<-cbind(zero.rows[1:3])
-          if (k==1){
-            print ("first run")
-            zero.rows1<-zero.rows
-          } else {
-            zero.rows<-subset(zero.rows,zero.rows$V1 %in% nodes.subset$V1 ==FALSE)
-            zero.rows<-subset(zero.rows,zero.rows$V2 %in% nodes.subset$V1 ==FALSE)
-            zero.rows1<-unique(rbind(zero.rows,zero.rows1))
-            print ("not first run")
-          }
-          
-          #print(rows.subset)
-          rows.subset2<-unique(rbind(zero.rows1,rows.subset))
-          rows.subset2<-cbind(rows.subset2[1:3])
-          ##write extended outputs to table in out_folder2 
-          ##i.e. now with all distances to nodes in max dist of nodes touching / zero distance from grid cell
-          out.distances.name<-paste0(out_folder2,"/",prefix,"_",suffix,".txt")
-          #out.nodes.name<-sub(distancesprefix,nodesprefix,out.distances.name)
-          write.table(rows.subset2,out.distances.name,row.names=F, col.names=F)
-          #get list of nodes for extended outputs
-          from.nodes2<-unique(rows.subset2[1])
-          to.nodes2<-unique(rows.subset2[2])
-          names(to.nodes2)<-names(from.nodes2)
-          nodes.subset2<-unique(rbind(to.nodes2,from.nodes2))
-          nodes.out2<-merge(nodes.subset2,in.nodes,by="V1")  
-          #edit nodes dataframe third column 
-          #so that only nodes in the target grid cell get dpc/varpc calculated
-          #this requires joining/merging dataframes 
-          gridcell.nodes$V2<-1
-          #str(gridcell.nodes)
-          #str(nodes.out2)
-          nodes.out2<-merge(nodes.out2,gridcell.nodes,by.x="V1",by.y="V1",all.x=TRUE)
-          names(nodes.out2)<-c("V1","V2","V3","V4")
-          nodes.out2$V3[which(is.na(nodes.out2$V4))] <--1
-          nodes.out2$V3[which(nodes.out2$V4==1)] <-1
-          nodes.out2<-cbind(nodes.out2[1:3])
-          out.nodes.name<-sub(distancesprefix,nodesprefix,out.distances.name)
-          write.table(nodes.out2,out.nodes.name,row.names=F, col.names=F)
-          #write second table to text file for ECA calculations - these have no areas for nodes outside
-          nodes.out2$V2[which(nodes.out2$V3==-1)]<-0
-          out.distances.name<-paste0(out_folder3,"/",prefix,"_",suffix,".txt")
-          write.table(rows.subset,out.distances.name,row.names=F, col.names=F)
-          out.nodes.name<-sub(distancesprefix,nodesprefix,out.distances.name)
-          write.table(nodes.out2,out.nodes.name,row.names=F, col.names=F)   
           gc()
+        if (loopcount==0){
+          j<-j+step
+        } else {
+          j=j
+        }
+        if (length(cells) >= j+(step)){
+          m<-m+step+1
+          j<-m+step
+        } else{ 
+          m<-j+1
+          j<-j+2
+        }
+        loopcount<-loopcount+1
         }
       }
     }

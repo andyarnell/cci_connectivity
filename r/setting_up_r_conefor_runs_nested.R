@@ -2,27 +2,48 @@
 ### Command lines ###
 #####################
 
+rm(list=ls())  
+
 in_path1="C:/Data/cci_connectivity/scratch/dispersal"
-in_path2="C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species/t0"
-out_path="C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species/t0"
+in_path2="C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species/ecoregions/West_Sudanian_savanna/t0"
+#in_path2="C:/Data/cci_connectivity/scratch/conefor_runs/inputs/nested/for_gridcell_runs/ecoregions/Western_Guinean_lowland_forests/t0"
 
-conefor_version<-"conefor_1_0_86_bcc_x86.exe"
+out_path=in_path2
 
+##only overall option:
 #for varPC/dPC leave as "" 
+#onlyoverall<-""
 #but if just need summary values like PC/ECA then use"onlyoverall"
-#onlyoverall<-"onlyoverall"
-onlyoverall<-""
-  
+onlyoverall<-"onlyoverall"
+
 #get dispersal distances from csv
 setwd(in_path1)
 Dist<- read.csv("dispersal_estimates.csv", h=T)
 Dist<- Dist[,c(5,20)]
 colnames(Dist) [1]<- "id_no"
 colnames(Dist) [2]<- "Disp_mean"
+Dist
 
-
-#get species ids from node files
+#set main input folder
 setwd(in_path2)
+getwd()
+
+
+#path where executable conefor version stored
+conefor_raw_path<-"C:/Data/cci_connectivity/raw/conefor"
+#the name of the conefor executable
+conefor_version<-"conefor_1_0_86_bcc_x86.exe"
+
+#check if conefor is in main folder and copy it there if not 
+if (file.exists(conefor_version)==FALSE){
+  print ("Conefor software not present in folder. Copying version from conefor raw path")
+  file.copy(paste0(conefor_raw_path,"/",conefor_version),conefor_version, recursive = FALSE,
+            copy.mode = TRUE, copy.date = FALSE)
+  print("File copied successfully")
+} else {
+  print ("conefor version exists in folder")
+}
+
 
 #make list of node and distance files for conefor in the in_path2 folder
 file_list <- list.files()
@@ -52,7 +73,7 @@ for (file in file_list){
 suffix# should contain species ID and Season including ".txt" at the end
 id_list# shoudl jsut be species ID
 
-#make a dataframe from the vectors bt column binding 
+#make a dataframe from the vectors by column binding 
 id_list<-data.frame(cbind(id_list,suffix))
 #name columns
 names(id_list)<-c("id_no","suffix")
@@ -60,7 +81,8 @@ names(id_list)<-c("id_no","suffix")
 #view datframe structure
 str(id_list)
 
-#inner join of dataframe with distnace CSV, based on the species id (id_no) 
+
+#inner join of dataframe with distance CSV, based on the species id (id_no) 
 Com<- merge(id_list, Dist, by="id_no")
 str(Com)
 
@@ -81,10 +103,16 @@ command_list=c()
 nodeCount=c()
 #loop through and make commands basded on dataframe
 
+
 for (i in 1:length(Com[,1])){
   count<-length(read.table(paste0("nodes_",x[i,2],".txt"))[,1])
   #if (length(nodeList[,1])<1000){
-  line<-paste0("shell('",in_path2,"/",conefor_version," -nodeFile nodes_",x[i,2],".txt -conFile distances_", x[i,2],".txt -t dist notall -confProb ",x[i,3]*conversion," 0.36788 -PC ",onlyoverall," -nodetypes -prefix ", x[i,2],"')")  
+  #PC based (uncomment correct line):
+  line<-paste0("shell('",in_path2,"/",conefor_version," -nodeFile nodes_",x[i,2],".txt -conFile distances_", x[i,2],".txt -t dist notall -confProb ",x[i,3]*conversion," 0.36788 -PC ",onlyoverall," -nodetypes -prefix ", x[i,2],"')")
+  #IIC based (using a multiplies of 4.6 * median as this corresponds to 0.01 prob of dispersal)
+  #line<-paste0("shell('",in_path2,"/",conefor_version," -nodeFile nodes_",x[i,2],".txt -conFile distances_", x[i,2],".txt -t dist notall -confAdj -IIC ",x[i,3]*conversion*4.6,"   ",onlyoverall," -nodetypes -prefix ", x[i,2],"')")  
+  #probability based:
+  #line<-paste0("shell('",in_path2,"/",conefor_version," -nodeFile nodes_",x[i,2],".txt -conFile distances_", x[i,2],".txt -t prob notall ",onlyoverall," -prefix ", x[i,2],"')")  
   print (line)
   print (count)    
   nodeCount<-append(nodeCount,count)
@@ -101,6 +129,4 @@ setwd(out_path)#where to put the output csv of command lines
 write.csv(command_dframe, "command_line.csv")
 
 
-shell('C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species/t0/conefor_1_0_86_bcc_x86.exe -nodeFile nodes_22680659_1.txt -conFile distances_22680659_1.txt -t dist notall -confProb 1214.121576 0.36788 -PC   -prefix 22680659_1')
-shell('C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species/t0/conefor_1_0_86_bcc_x86.exe -nodeFile nodes_22683862_1.txt -conFile distances_22683862_1.txt -t dist notall -confProb 7265.694423 0.36788 -PC   -prefix 22683862_1')
-shell('C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species/t0/conefor_1_0_86_bcc_x86.exe -nodeFile nodes_22706690_1.txt -conFile distances_22706690_1.txt -t dist notall -confProb 1476.214736 0.36788 -PC   -prefix 22706690_1')
+

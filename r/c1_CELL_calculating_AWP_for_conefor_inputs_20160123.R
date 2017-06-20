@@ -2,20 +2,22 @@
 #Andy Arnell 25/02/2016
 #install.packages("gdata")
 library(gdata) 
+
 rm(list=ls())
 
 #calculate probabilities
 in_path1<-"C:/Data/cci_connectivity/scratch/dispersal"
-in_path2<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species"
+in_path2<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species/ecoregions/Western_Guinean_lowland_forests/t0"
+#in_path2<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species/ecoregions/for_nested_test/t0"
 #make sure it's not the same as in path else will overwrite
-out_path<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/nested/for_gridcell_awp"
+out_path<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/nested/for_gridcell_runs/ecoregions/Western_Guinean_lowland_forests/t0"
 
 #get dispersal constants by species
 setwd(in_path1)
 Dist<- read.csv("dispersal_estimates.csv", h=T)
 Dist<- Dist[,c(5,20)]
 colnames(Dist) [1]<- "id_no"
-colnames(Dist) [2]<- "Disp_mean"
+colnames(Dist) [2]<- "Disp_median"
 
 #geting dispersal distances from csv
 #make a list of files
@@ -26,6 +28,7 @@ file_list
 
 #get distances
 string_pattern<- "distances_*"
+string_pattern<-"distances_22692177_1"
 #choose only the distance files
 file_list<- file_list[lapply(file_list, function(x) length(grep(string_pattern, x, value=FALSE))) ==1 ]
 file_list
@@ -77,7 +80,7 @@ for (i in 1:length(file_list)){
   #get est median dispersal distances for each species
   inP=0.36788
   Dist.sub<-subset(Dist,Dist$id_no==id_no1)
-  dispConst<-Dist.sub$Disp_mean*1000
+  dispConst<-Dist.sub$Disp_median*1000
   dispConst
   
   spp$prob<-exp(-(-1*(log(inP)/dispConst)) * spp$dist)

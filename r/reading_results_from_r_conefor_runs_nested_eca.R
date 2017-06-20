@@ -4,19 +4,17 @@ library(sp)
 library(rgeos)
 library(raster)
 
+
+rm(list=ls())
+
 ###aim: read in results from conefor and aggregate ###simple aggregation for PAs when ids match 
-in_path1="C:/Data/cci_connectivity/scratch/conefor_runs/inputs/nested/for_gridcell_eca"
+in_path1="C:/Data/cci_connectivity/scratch/conefor_runs/inputs/nested/for_gridcell_eca/ecoregions/Western_Guinean_lowland_forests/t0"
 #in_path2="C:/Data/cci_connectivity/scratch/nodes"
-out_path="C:/Data/cci_connectivity/scratch/conefor_runs/for_gridcell_runs"
+out_path="C:/Data/cci_connectivity/scratch/conefor_runs/inputs/nested/for_gridcell_runs/ecoregions/Western_Guinean_lowland_forests/t0"
 
-#if nested
-selection_code<-c(TRUE,TRUE,TRUE,FALSE,FALSE)
 
-#if normal run 
-#selection_code<-c(TRUE,TRUE,FALSE,FALSE)
-
-#get species ids from node files
 setwd(in_path1)
+getwd()
 
 #make list of node and distance files for conefor in the in_path2 folder
 file_list <- list.files()
@@ -26,19 +24,27 @@ stringPattern="results_all_EC(PC)*"
 file<-file_list[lapply(file_list,function(x) length(grep(stringPattern,x,value=FALSE))) == 1]
 file
 eca.df<-read.table(file,header=T)#read.table(inCSV)
-head(eca.df)
 eca.df<-data.frame(cbind(eca.df[1],eca.df[4]))
-eca.df$Prefix<-data.frame(lapply(eca.df[1], as.character), stringsAsFactors=FALSE)
-str(eca.df)
-dt<- strsplit(eca.codes[2,],"_")[[1]]#splits string
-eca.df$Prefix<-
-data.frame(lapply(eca.codes, strsplit(x,"_")), stringsAsFactors=FALSE)
-sapply(strsplit(eca.df[1], "_"), "[[", 1)
-sapply(strsplit(eca.df[1], ""), function(a) a[1])
-x<-as.list(eca.df[1])
+#substitute for "" after second "_" to give species id and season combined
+x<-eca.df$Prefix
+eca.df$id_no1<-gsub("^([^_]*_[^_]*)_.*$", "\\1", x)
+#substitute for "" after second "_" to give gridcell id as the new node id for final conefor runs
+eca.df$gridcell_id<-gsub('.*\\_', '', x)
+eca.df$gridcell_id<-as.integer(eca.df$gridcell_id)
+eca.df$EC.PC.<-as.numeric(eca.df$EC.PC.)
+head(eca.df)
 
-lapply(x, function(x)strsplit(x, split='_')[[1]])
-dt<-dt[c(selection_code)]#chooses certain part to keep
-print (dt[1:2])
+spList<-unique(eca.df$id_no1)
 
-res$id_no<-paste0(dt[1],"_",dt[2])
+spList
+
+for (i in 1:length(spList)){
+  eca.df.sub<-subset(eca.df,eca.df$id_no1==eca.df$id_no1[i])
+  suffix<-eca.df.sub$id_no1[1]
+  print (suffix)
+  out.df<-data.frame(cbind(eca.df.sub$gridcell_id,eca.df.sub$EC.PC.))
+  out.name<-paste0(out_path,"/nodes_",suffix,".txt")
+  print(out.name)
+  write.table(out.df,out.name,col.names = FALSE,row.names = FALSE)
+  }
+

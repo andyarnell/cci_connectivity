@@ -41,13 +41,13 @@
   
   a
   
-a<-a[2:3,]  
+#a<-a[2:3,]  
 #get dispersal constants by species
 setwd(workingFolder_4)
 Dist<- read.csv("dispersal_estimates.csv", h=T)
 Dist<- Dist[,c(5,20)]
 colnames(Dist) [1]<- "id_no"
-colnames(Dist) [2]<- "Disp_median"
+colnames(Dist) [2]<- "disp_mean"
 
 #Import Look up table (LUT) for getting gridcell codes
 
@@ -137,7 +137,7 @@ for (y in 1:length(a$eco_id)){
       #getting species dispersal distances from file
       if (convert_to_probabilities==TRUE){
         Dist.sub<-subset(Dist,Dist$id_no==id_no1)
-        dispConst<-Dist.sub$Disp_median*1000
+        dispConst<-Dist.sub$disp_mean*1000
         dispConst
         inP<-0.36788
         in.data$V3<- exp(-(-1*(log(inP)/dispConst)) * in.data$V3)

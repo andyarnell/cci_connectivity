@@ -23,6 +23,7 @@ file_list
 x<-file_list
 
 
+
 agg_res<-data.frame()
 
 for (i in 1:length(x)){

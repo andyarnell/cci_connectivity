@@ -1,4 +1,6 @@
-
+#Aim: loops through ecoregions and time periods and checks if species have same nodes and similar dispersal dsitances
+##the script groups these species with ndoes and dispersal distances in common and makes a list (in a csv placed in folder) of species to from that group (in the "to_run" field)
+###cuttenrly works only
 
 rm(list=ls())
 ls()
@@ -48,7 +50,7 @@ pcent_bounds<-10
 lowerbound<-1-(pcent_bounds/100)
 upperbound<-1+(pcent_bounds/100)
 
-time_periods<-c("t0","t1")
+time_periods<-c("t0","t1","t2")
 y=1
 k=1
 for (y in 1:length(a$eco_id)){
@@ -72,15 +74,22 @@ for (y in 1:length(a$eco_id)){
     #file_list<-unique(file_list)
     file_list.df<-data.frame(file_list)
     p=1
+    #make open clean list
     x<-list()
+    
     for (m in 1:length(file_list)){
+      #read in text file for nodes
       m.df<-read.table(file_list[m])
+      #get count for number of nodes and put in a dataframe
       file_list.df$count[m]<-nrow(m.df)
+      #get node ids in a list of lists
       x[[p]]<-m.df[1]
+      #iterator to make a new entry in list each time
       p<-p+1
     }
 
     ux<-unique(x)
+    #checks to see matches between nodes for different species. If all match then assigns a group number to it. 
     node_group<-match(x,ux)
     node_group
     file_list.df$node_group<-node_group
@@ -187,7 +196,7 @@ for (y in 1:length(a$eco_id)){
           #comb_data$group[(which(comb_data$pcentdiff<lowerbound | comb_data$pcentdiff>upperbound))]<-comb_data$disp_mean[(which(comb_data$pcentdiff<lowerbound | comb_data$pcentdiff>upperbound))]
           comb_data.order<-comb_data[order(comb_data$disp_mean),]
           length(unique(comb_data.order$dist_group))
-          plot(comb_data.order$dist_group~comb_data.order$disp_mean)
+          #plot(comb_data.order$dist_group~comb_data.order$disp_mean)
           
 
 

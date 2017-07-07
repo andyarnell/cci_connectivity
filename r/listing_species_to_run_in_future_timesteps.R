@@ -1,6 +1,5 @@
 
-#Aim: loops through time periods and checks if nodes and areas have changed between time periods. 
-###cuttenrly works only
+#Aim: loops through time periods and checks if nodes and areas (i.e. the node file) has changed between time periods. By default uses difference between subsequent time steps in the time_periods list
 
 rm(list=ls())
 ls()
@@ -25,6 +24,9 @@ in_folder_2<-"C:/Data/cci_connectivity/scratch/dispersal" ###contains dispersal 
 a<-read.csv("C:/Data/cci_connectivity/scratch/nodes/corridors/eco_nodecount.csv",header=TRUE)
 #select subset those that have input folders already
 
+combine_with_groupings_output<-TRUE #if true then will combine with the groupings output (from seperate script) so time savings from both are made
+##################
+
 setwd(in_folder_1)
 
 file_list1<- list.files()
@@ -38,19 +40,6 @@ str(file_list1)
 a<-merge(a,file_list1,by.x="eco_name",by.y="file_list1")
 
 a
-
-#get dispersal constants by species
-setwd(in_folder_2)
-Dist<- read.csv("dispersal_estimates.csv", h=T)
-Dist<- Dist[,c(5,20)]
-colnames(Dist) [1]<- "id_no"
-colnames(Dist) [2]<- "disp_mean"
-str(Dist)
-
-#pcent_bounds<-10
-
-#lowerbound<-1-(pcent_bounds/100)
-#upperbound<-1+(pcent_bounds/100)
 
 time_periods<-c("t0","t1","t2")
 
@@ -126,7 +115,7 @@ for (y in 1:length(a$eco_id)){
           }
       }
     }
-    
+    #feedback
     num_sp_no_change<-length(file_list.df$to_run) - sum(file_list.df$to_run)
     print (paste0("Time periods ", time_periods[k]," to ",time_periods[k+1],": ",num_sp_no_change," species not impacted"))
     
@@ -137,11 +126,11 @@ for (y in 1:length(a$eco_id)){
       file_list.df$id_no[r]<-dt[1]
       file_list.df$season[r]<-dt[2]
       }
-      
-      #writing outputs to file
+
+  
+    if (combine_with_groupings_output){
+      #combining with groupings output
       setwd(out_folder2)
-      write.csv(file_list.df,"all_impacted_to_run.csv",row.names=FALSE)
-      
       #combining with grouping output csv to make a combined list in a csv (all_final_to_run_list.csv) of species not to run (to_run field to be used in later steps)
       grouped.df<-read.csv("all_groupings_to_run.csv",header=TRUE)
       joined.df<-merge(file_list.df,grouped.df,by=c("id_no","season"))
@@ -163,15 +152,32 @@ for (y in 1:length(a$eco_id)){
       percent<-round((num_sp_no_change/total_length*100),2)
       print (paste0(a$eco_name[y]," - time periods ", time_periods[k]," to ",time_periods[k+1],": ",num_sp_no_change," out of ", total_length," (",percent,"%) species not run"))
       
-      #copy grouped file for t0 so csv can be used
+      #copy file from t1 into t0 and make all in the "to_run" field set as 1.
+      t1file_list.df<-file_list.df
+      t1file_list.df$to_run<-1
+      t1file_list.df
       setwd(out_folder1)
-      grouped.df<-read.csv("all_groupings_to_run.csv",header=TRUE)
-      write.csv(grouped.df,"all_final_to_run_list.csv",row.names=FALSE)
-    
+      write.csv(t1file_list.df,"all_final_to_run_list.csv",row.names=FALSE)
+      setwd(out_folder2)
+    }else {
+      print ("Not combining with grouping output")
+      #copy impacted file to "all_final_to_run_list.csv" for t1,t2 etc so final csv can be used
+      setwd(out_folder2)
+      write.csv(file_list.df,"all_final_to_run_list.csv",row.names=FALSE)
+      
+      #copy file from t1 into t0 and make all in the "to_run" field set as 1.
+      setwd(out_folder1)
+      t1file_list.df<-file_list.df
+      t1file_list.df$to_run<-1
+      t1file_list.df
+      write.csv(t1file_list.df,"all_final_to_run_list.csv",row.names=FALSE)
+      
+      setwd(out_folder2)
       #useful code for deleting files if needed  
       #fn<-"filename_here"
       #if (file.exists(fn)) file.remove(fn)
     }
+ 
+  }
 }
-
 

@@ -17,17 +17,73 @@ file_list <- list.files()
 
 #selecting files, based on string recognition to select outputs
 stringPattern="_node_importances.txt*"
+
+stringPattern="nodes*"
 file_list<-file_list[lapply(file_list,function(x) length(grep(stringPattern,x,value=FALSE))) == 1]
 file_list
 x<-file_list
 
-
+######################################################
 ###add step to copy files where others in same group
 #get list of files to run from "all_final_to_run_list.csv"
 to_run.df<-read.csv("all_final_to_run_list.csv",header=TRUE)
-to_run<-to_run.df$to_run
+#to_run<-to_run.df$to_run
 #to_run<-as.character(to_run.df$file_list[which(to_run.df$to_run==1)])
-str(to_run)
+#str(to_run)
+
+##################
+#remove this bit
+file_list.remove<-file_list[which(!file_list %in% to_run)]
+file_list.remove
+
+for (fn in file_list.remove){
+  if (file.exists(fn)) file.remove(fn)
+}
+
+to_run<-to_run.df[which(to_run.df$to_run==1),]
+to_run<-data.frame(cbind(to_run$id_no,to_run$season))
+names(to_run)<-c("id_no","season")
+#to_run<-unique(to_run)
+to_run<-droplevels(to_run)
+#list files run
+grp<-3
+
+count<-1
+for (grp in 1:length(to_run){
+  #for each file that was run select the others files in that that group that were not run
+  grp.run<-to_run[grp,]
+  #grp.run
+  grp.unrun<-to_run.df$dist_group[which(to_run.df$file_list==to_run.df$file_list[grp])]  
+  grp.unrun<-to_run.df[which(to_run.df$dist_group==grp.unrun & to_run.df$to_run==0),]
+  grp.unrun<-data.frame(cbind(grp.unrun$id_no,grp.unrun$season))
+  names(grp.unrun)<-c("id_no","season")
+  agg.res<-read.csv("conefor_outputs.csv",header=TRUE)#get csv of outputs from conefor
+  ##version where copying results rows as opposed to the text files
+  run.res<-agg.res[which(agg.res$id_no==paste0(grp.run$id_no,"_",grp.run$season)),] #if id_no column in results is concatonation of id_no and season
+  ##or 
+  #run.res<-agg.res[which(agg.res$id_no==grp.run$id_no & agg.res$season == grp.run$season)),] #if seperate id_no and season fields in results
+                                   
+  for (sp in 1:length(grp.unrun){
+    #then loop through the species that were not run 
+    run.res$id_no<-paste0(grp.unrun$id_no,"_",unrun$season) #if id_no column in results is concatonation of id_no and season
+    #run.res$id_no<-grp.unrun$id_no   #if seperate id_no and season fields in results
+    #run.res$season<-grp.unrun$season)     #if seperate id_no and season fields in results
+    #for each one make a new copy of the file output that was run 
+    if (count=1){
+      agg.res.comb<-agg.res
+    }else {
+      agg.res.comb<-rbind(run.res,agg.res.comb)}
+    #and renaming it to one of the ones that wasn't ran 
+    count=count+1 
+  }
+}
+
+write.csv(agg.res.com,"conefor_results_expanded_groups.csv",row.names=FALSE)
+
+###################
+file_list
+to_run.df
+
 
 agg_res<-data.frame()
 

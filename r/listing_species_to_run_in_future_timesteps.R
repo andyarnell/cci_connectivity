@@ -1,5 +1,7 @@
 
 #Aim: loops through time periods and checks if nodes and areas (i.e. the node file) has changed between time periods. By default uses difference between subsequent time steps in the time_periods list
+#output file is "all_final_to_run_list.csv". includes: id_no,  season and a "to_run" column - which is the improtant column, where 1 = to run, 0 = not to run.
+#this output csv can be used with the conefor command line creation script to filter only those that need to run in the different timesteps
 
 rm(list=ls())
 ls()
@@ -15,6 +17,7 @@ library(rattle)
 #install.packages("compare")
 library(compare)
 ###########################
+
 # input folders  
 in_folder_1<-"C:/Data/cci_connectivity/scratch/conefor_runs/inputs/by_species/ecoregions"
 in_folder_2<-"C:/Data/cci_connectivity/scratch/dispersal" ###contains dispersal distances if running probabilities 
@@ -24,7 +27,10 @@ in_folder_2<-"C:/Data/cci_connectivity/scratch/dispersal" ###contains dispersal 
 a<-read.csv("C:/Data/cci_connectivity/scratch/nodes/corridors/eco_nodecount.csv",header=TRUE)
 #select subset those that have input folders already
 
+#optional extra if grouping by dispersal and nodes has been ran already (there will be an "all_groupings_to_run.csv if this is the case")
 combine_with_groupings_output<-TRUE #if true then will combine with the groupings output (from seperate script) so time savings from both are made
+
+
 ##################
 
 setwd(in_folder_1)
@@ -129,7 +135,8 @@ for (y in 1:length(a$eco_id)){
 
   
     if (combine_with_groupings_output){
-      #combining with groupings output
+      
+      ####combining with groupings output for t1,t2 etc
       setwd(out_folder2)
       #combining with grouping output csv to make a combined list in a csv (all_final_to_run_list.csv) of species not to run (to_run field to be used in later steps)
       grouped.df<-read.csv("all_groupings_to_run.csv",header=TRUE)
@@ -146,19 +153,45 @@ for (y in 1:length(a$eco_id)){
       joined.df$to_run[which(joined.df$to_run_timestep_filter==1 & joined.df$to_run_grouped_filter==1)]<-1
       joined.df$to_run[which(joined.df$to_run_timestep_filter==1 & joined.df$to_run_grouped_filter==0)]<-0
       write.csv(joined.df,"all_final_to_run_list.csv",row.names=FALSE)
-      joined.df$to_run
+      #feedback to user      
       total_length<-length(joined.df$to_run)
       num_sp_no_change<-total_length - sum(joined.df$to_run)
       percent<-round((num_sp_no_change/total_length*100),2)
       print (paste0(a$eco_name[y]," - time periods ", time_periods[k]," to ",time_periods[k+1],": ",num_sp_no_change," out of ", total_length," (",percent,"%) species not run"))
       
-      #copy file from t1 into t0 and make all in the "to_run" field set as 1.
+      ####combining with groupings output t0
+      
+      #copy output from t1/t2 impacted dataframe and make all in the "to_run" field set as 1.
+      setwd(out_folder1)
       t1file_list.df<-file_list.df
       t1file_list.df$to_run<-1
       t1file_list.df
-      setwd(out_folder1)
-      write.csv(t1file_list.df,"all_final_to_run_list.csv",row.names=FALSE)
-      setwd(out_folder2)
+      #combining with grouping output csv to make a combined list in a csv (all_final_to_run_list.csv) of species not to run (to_run field to be used in later steps)
+      grouped.df<-read.csv("all_groupings_to_run.csv",header=TRUE)
+      joined.df<-merge(t1file_list.df,grouped.df,by=c("id_no","season"))
+      str(file_list.df)
+      str(grouped.df)
+      str(joined.df)
+      names(joined.df)[4]<-"to_run_timestep_filter"
+      names(joined.df)[10]<-"to_run_grouped_filter"
+      joined.df$to_run<-1
+      #if no change between time periods then don't run
+      joined.df$to_run[which(joined.df$to_run_timestep_filter==0)]<-0
+      #if change between time periods then treat use groupings column
+      joined.df$to_run[which(joined.df$to_run_timestep_filter==1 & joined.df$to_run_grouped_filter==1)]<-1
+      joined.df$to_run[which(joined.df$to_run_timestep_filter==1 & joined.df$to_run_grouped_filter==0)]<-0
+      write.csv(joined.df,"all_final_to_run_list.csv",row.names=FALSE)
+      #feedback to user      
+      total_length<-length(joined.df$to_run)
+      num_sp_no_change<-total_length - sum(joined.df$to_run)
+      percent<-round((num_sp_no_change/total_length*100),2)
+      print (paste0(a$eco_name[y]," - time periods ", time_periods[k]," to ",time_periods[k+1],": ",num_sp_no_change," out of ", total_length," (",percent,"%) species not run"))
+ 
+
+      
+      #fn<-"all_impacted_to_run.csv"
+      #if (file.exists(fn)) file.remove(fn)
+      
     }else {
       print ("Not combining with grouping output")
       #copy impacted file to "all_final_to_run_list.csv" for t1,t2 etc so final csv can be used
@@ -174,8 +207,8 @@ for (y in 1:length(a$eco_id)){
       
       setwd(out_folder2)
       #useful code for deleting files if needed  
-      #fn<-"filename_here"
-      #if (file.exists(fn)) file.remove(fn)
+#      fn<-"all_impacted_to_run.csv"
+#      if (file.exists(fn)) file.remove(fn)
     }
  
   }

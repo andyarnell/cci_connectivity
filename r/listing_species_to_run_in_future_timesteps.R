@@ -28,7 +28,7 @@ a<-read.csv("C:/Data/cci_connectivity/scratch/nodes/corridors/eco_nodecount.csv"
 #select subset those that have input folders already
 
 #optional extra if grouping by dispersal and nodes has been ran already (there will be an "all_groupings_to_run.csv if this is the case")
-combine_with_groupings_output<-TRUE #if true then will combine with the groupings output (from seperate script) so time savings from both are made
+combine_with_groupings_output<-FALSE #if true then will combine with the groupings output (from seperate script) so time savings from both are made
 
 
 ##################
@@ -51,6 +51,10 @@ time_periods<-c("t0","t1","t2")
 
 y=1
 k=1
+
+#removing from list those >3000 nodes
+a<- subset(a,a$count<6000)
+a<-droplevels(a)
 
 
 for (y in 1:length(a$eco_id)){
@@ -152,12 +156,15 @@ for (y in 1:length(a$eco_id)){
       #if change between time periods then treat use groupings column
       joined.df$to_run[which(joined.df$to_run_timestep_filter==1 & joined.df$to_run_grouped_filter==1)]<-1
       joined.df$to_run[which(joined.df$to_run_timestep_filter==1 & joined.df$to_run_grouped_filter==0)]<-0
-      write.csv(joined.df,"all_final_to_run_list.csv",row.names=FALSE)
+      
+      write.csv(joined.df,paste0("all_final_to_run_list","_",time_periods[k],"-",time_periods[k+1],".csv"),row.names=FALSE)
       #feedback to user      
       total_length<-length(joined.df$to_run)
       num_sp_no_change<-total_length - sum(joined.df$to_run)
       percent<-round((num_sp_no_change/total_length*100),2)
       print (paste0(a$eco_name[y]," - time periods ", time_periods[k]," to ",time_periods[k+1],": ",num_sp_no_change," out of ", total_length," (",percent,"%) species not run"))
+      #fn<-"all_final_to_run_list.csv"
+      #if (file.exists(fn)) file.remove(fn)
       
       ####combining with groupings output t0
       
@@ -180,7 +187,8 @@ for (y in 1:length(a$eco_id)){
       #if change between time periods then treat use groupings column
       joined.df$to_run[which(joined.df$to_run_timestep_filter==1 & joined.df$to_run_grouped_filter==1)]<-1
       joined.df$to_run[which(joined.df$to_run_timestep_filter==1 & joined.df$to_run_grouped_filter==0)]<-0
-      write.csv(joined.df,"all_final_to_run_list.csv",row.names=FALSE)
+      #write.csv(joined.df,"all_final_to_run_list.csv",row.names=FALSE)
+      write.csv(joined.df,paste0("all_final_to_run_list","_",time_periods[k],"-",time_periods[k+1],".csv"),row.names=FALSE)
       #feedback to user      
       total_length<-length(joined.df$to_run)
       num_sp_no_change<-total_length - sum(joined.df$to_run)
@@ -189,26 +197,28 @@ for (y in 1:length(a$eco_id)){
  
 
       
-      #fn<-"all_impacted_to_run.csv"
+      #fn<-"all_final_to_run_list.csv"
       #if (file.exists(fn)) file.remove(fn)
       
     }else {
       print ("Not combining with grouping output")
       #copy impacted file to "all_final_to_run_list.csv" for t1,t2 etc so final csv can be used
       setwd(out_folder2)
-      write.csv(file_list.df,"all_final_to_run_list.csv",row.names=FALSE)
-      
+#      write.csv(file_list.df,"all_final_to_run_list.csv",row.names=FALSE)
+      write.csv(file_list.df,paste0("all_final_to_run_list","_",time_periods[k],"-",time_periods[k+1],".csv"),row.names=FALSE)     
       #copy file from t1 into t0 and make all in the "to_run" field set as 1.
       setwd(out_folder1)
       t1file_list.df<-file_list.df
       t1file_list.df$to_run<-1
       t1file_list.df
-      write.csv(t1file_list.df,"all_final_to_run_list.csv",row.names=FALSE)
-      
+      #fn<-"all_final_to_run_list.csv"
+      #if (file.exists(fn)) file.remove(fn)
+#      write.csv(t1file_list.df,"all_final_to_run_list.csv",row.names=FALSE)
+      write.csv(t1file_list.df,paste0("all_final_to_run_list","_",time_periods[k],"-",time_periods[k+1],".csv"),row.names=FALSE)
       setwd(out_folder2)
       #useful code for deleting files if needed  
-#      fn<-"all_impacted_to_run.csv"
-#      if (file.exists(fn)) file.remove(fn)
+      #fn<-"all_final_to_run_list.csv"
+      #if (file.exists(fn)) file.remove(fn)
     }
  
   }

@@ -23,7 +23,7 @@ str(list)
 list.df<-data.frame(list)
 
 #subset loss in 2014 
-list.df<-cbind(list.df[1],round(list.df[16]*100)/400000000),2)
+list.df<-cbind(list.df[1],round((list.df[16]*100/400000000),2))
 #add names
 names(list.df)<-c("grid_id","loss2014")
 #str(list.df)
@@ -43,11 +43,11 @@ list.df.aggloss2014<-subset(list.df.aggloss2014,list.df.aggloss2014$loss2014!=0)
 
 #select top 5%
 n<-5
-list.df.agg2014.top5pc<-subset(list.df.aggloss2014, loss2014 > quantile(loss2014, prob = 1 - n/100))
-nrow(list.df.aggloss2014.top5pc)
+list.df.agg2014loss.top5pc<-subset(list.df.aggloss2014, loss2014 > quantile(loss2014, prob = 1 - n/100))
+nrow(list.df.agg2014loss.top5pc)
 #write to csv
 help("write.csv")
-write.csv(list.df.aggloss2014.top5pc,"list_df_aggloss2014_top5pc.csv",row.names=FALSE)
+write.csv(list.df.agg2014loss.top5pc,"list_df_aggloss2014_top5pc.csv",row.names=FALSE)
 #listS<- lapply(list, function(x) aggregate(x, by= list(x$OBJECTID), sum))
 
 

@@ -69,7 +69,7 @@ write.csv(eco,"C:/Data/cci_connectivity/scratch/eco_nodecount.csv",row.names=F, 
 Wafrica<- c("Eastern_Guinean_forests", "West_Sudanian_savanna", "Guinean_forest_savanna_mosaic", 
             "Western_Guinean_lowland_forests", "Jos_Plateau_forest_grassland_mosaic", "Guinean_mangroves",
             "Central_African_mangroves", "Guinean_montane_forests", "Lake_Chad_flooded_savanna", 
-            "Cross_Sanaga_Bioko_coastal_forests", "Cross_Niger_transition_forests", "Niger_Delta_swamp_forests") 
+            "Cross_Sanaga_Bioko_coastal_forests", "Cross_Niger_transition_forests", "Niger_Delta_swamp_forests", "Nigerian_lowland_forests") 
 1:length(Wafrica)
 #Wafrica$Wafrica<-(sapply(Wafrica$Wafrica, function(x) chartr( " ,-","___", x)))
 Wafrica<-data.frame(Wafrica)
@@ -78,12 +78,18 @@ a<-merge(eco,Wafrica,by.x="eco_name",by.y="Wafrica")
 
 a
 
+
+#removing from list those >3000 nodes
+a<- subset(a,(a$count<3000)&(a$count>2))
+a<-droplevels(a)
+a
+
 #a<- data.frame(eco_name= c("Ethiopian_montane_moorlands", "Eastern_Arc_forests"), eco_id= c(31008,30109))
 #a<-eco
 
 
 strSQL<- paste0(
-  "--AIM: Make species EOO,ESH and range-rarity (national) maps based on a grid covering the area of interest (aoi) This has been used for landshift results for africa paper with kassel University
+  "--AIM: 
   
   ---set path for sql processing to act on tables in a specific schema within the database (normally defaults to public otherwise)
   --more than one can be listed using commas
@@ -132,7 +138,7 @@ strSQL<- paste0(
 
 dbGetQuery(con, strSQL)
 
-  
+
 strSQL<-paste0("--Aim: make a cleaner species layer
 drop table if exists ",sp_merged_all_clean,";
 create table ",sp_merged_all_clean," as
@@ -156,13 +162,12 @@ create index ",sp_merged_all_clean,"_index_season on ",sp_merged_all_clean," (se
 dbGetQuery(con,strSQL)
 
 
-
-for (y in 4:4){#length(a$eco_id)){
+for (y in 10:10){#length(a$eco_id)){
   print (a$eco_id[y])
 
   
   strSQL<- paste0(
-    "--AIM: Make species EOO,ESH and range-rarity (national) maps based on a grid covering the area of interest (aoi) This has been used for landshift results for africa paper with kassel University
+    "--AIM: 
     
     ---set path for sql processing to act on tables in a specific schema within the database (normally defaults to public otherwise)
     --more than one can be listed using commas
@@ -210,7 +215,7 @@ for (y in 4:4){#length(a$eco_id)){
 dbGetQuery(con, strSQL)
 }    
 
-for (y in 4:4){#length(a$eco_id)){
+for (y in 10:10){#length(a$eco_id)){
   print (a$eco_id[y])
   
   
@@ -241,7 +246,7 @@ for (y in 4:4){#length(a$eco_id)){
 }
   
 
-for (y in 4:4){#1:length(a$eco_id)){
+for (y in 10:10){#1:length(a$eco_id)){
   print (a$eco_id[y])
   
   #STEP 4: create folder and change directory  
@@ -390,9 +395,9 @@ str(file_list1)
 #a<-merge(a,file_list1,by.x="eco_name",by.y="file_list1",all.y)
 #############
 str(a)
+a
 
-
-for (y in 4:4){ #1:length(a$eco_id)){
+for (y in 10:10){ #1:length(a$eco_id)){
   print (a$eco_id[y])
   setwd(paste0(mainDir,"/",as.character(a$eco_name[which(a$eco_id==a$eco_id[y])]),"/raw"))
   getwd()
@@ -403,9 +408,10 @@ for (y in 4:4){ #1:length(a$eco_id)){
   string_pattern<- "nodes_*"
   file_list<- file_list[lapply(file_list, function(x) length(grep(string_pattern, x, value=FALSE))) ==1 ]
   file_list
-  
+  #file_list<-file_list[1:20]########remove - for testing only
   
   file_list2<- lapply(file_list, read.table)
+  file_list2
   file_list<- strsplit(file_list, ".txt")
   #file_list<- lapply(file_list, function(x) gsub("nodes", "nodes",x))
   names(file_list2)<- file_list
@@ -418,7 +424,7 @@ for (y in 4:4){ #1:length(a$eco_id)){
   #file_listt0<- lapply(file_list2, function(x) x[!(x$loss > -1),])
   
   file_listt0<- lapply(file_listt0, function(x) x[c(1,2)]) 
-  
+  str(file_listt0)
   dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), "t0"))
   
   sapply(names(file_listt0), function(x) write.table(file_listt0[[x]], 
@@ -430,7 +436,7 @@ for (y in 4:4){ #1:length(a$eco_id)){
   ## if want to corridors removed in t1 uncomment next line
   #file_listt1<- lapply(file_list2, function(x) x[(x$fid_corrid== -1),])
   file_listt1<- lapply(file_listt1, function(x) x[c(1,2)]) 
-  
+  file_listt1
   dir.create(file.path(mainDir,print(as.character(a$eco_name[which(a$eco_id==a$eco_id[y])])), "t1"))
   
   sapply(names(file_listt1), function(x) write.table(file_listt1[[x]], 
